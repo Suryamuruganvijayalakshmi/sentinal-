@@ -415,14 +415,34 @@ def test_vercel_serverless_entry_and_sync():
 
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
-    # 1. Validate vercel.json and requirements.txt packaging constraints
+    # 1. Validate Vercel Services vercel.json and requirements.txt packaging constraints
     with open(os.path.join(root_dir, "vercel.json"), "r", encoding="utf-8") as f:
         vcfg = json.load(f)
-    assert vcfg["outputDirectory"] == "sentinel/frontend/dist"
-    assert "api/index.py" in vcfg["functions"]
-    assert "debris_catalog.json" in vcfg["functions"]["api/index.py"]["includeFiles"]
-    assert any(r["source"] == "/api/(.*)" and r["destination"] == "/api/index.py" for r in vcfg["rewrites"])
-    assert any(r["destination"] == "/index.html" for r in vcfg["rewrites"])
+    for forbidden_top_level in (
+        "functions",
+        "installCommand",
+        "buildCommand",
+        "devCommand",
+        "ignoreCommand",
+        "outputDirectory",
+        "framework",
+    ):
+        assert forbidden_top_level not in vcfg, f"Invalid top-level key in services mode: {forbidden_top_level}"
+
+    services = vcfg["services"]
+    assert services["backend"]["root"] == "."
+    assert services["backend"]["framework"] == "fastapi"
+    assert services["backend"]["entrypoint"] == "api.index:app"
+    assert "api/index.py" in services["backend"]["functions"]
+    assert "debris_catalog.json" in services["backend"]["functions"]["api/index.py"]["includeFiles"]
+    assert services["frontend"]["root"] == "sentinel/frontend"
+    assert services["frontend"]["framework"] == "vite"
+    assert services["frontend"]["outputDirectory"] == "dist"
+
+    rewrites = vcfg["rewrites"]
+    assert rewrites[-1] == {"source": "/(.*)", "destination": {"service": "frontend"}}
+    assert any(r["source"] == "/api" and r["destination"] == {"service": "backend"} for r in rewrites)
+    assert any(r["source"] == "/api/(.*)" and r["destination"] == {"service": "backend"} for r in rewrites)
 
     with open(os.path.join(root_dir, "requirements.txt"), "r", encoding="utf-8") as f:
         reqs = f.read().lower()

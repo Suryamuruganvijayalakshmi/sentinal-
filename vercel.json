@@ -1,14 +1,24 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "npm --prefix sentinel/frontend ci --include=dev",
-  "buildCommand": "npm --prefix sentinel/frontend run build",
-  "outputDirectory": "sentinel/frontend/dist",
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 30,
-      "includeFiles": "{sentinel/__init__.py,sentinel/backend/**,sentinel/data/processed/debris_catalog.json}",
-      "excludeFiles": "{sentinel/frontend/**,sentinel/data/raw/**,sentinel/data/processed/debris_catalog.csv,sentinel/tests/**,sentinel/sentinel.db,debris-detection/**,**/*.log}"
+  "services": {
+    "backend": {
+      "root": ".",
+      "framework": "fastapi",
+      "entrypoint": "api.index:app",
+      "functions": {
+        "api/index.py": {
+          "maxDuration": 30,
+          "includeFiles": "{sentinel/__init__.py,sentinel/backend/**,sentinel/data/processed/debris_catalog.json}",
+          "excludeFiles": "{sentinel/frontend/**,sentinel/data/raw/**,sentinel/data/processed/debris_catalog.csv,sentinel/tests/**,sentinel/sentinel.db,debris-detection/**,**/*.log}"
+        }
+      }
+    },
+    "frontend": {
+      "root": "sentinel/frontend",
+      "framework": "vite",
+      "installCommand": "npm ci --include=dev",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
     }
   },
   "headers": [
@@ -22,23 +32,33 @@
   "rewrites": [
     {
       "source": "/api",
-      "destination": "/api/index.py"
+      "destination": {
+        "service": "backend"
+      }
     },
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": {
+        "service": "backend"
+      }
     },
     {
       "source": "/docs",
-      "destination": "/api/index.py"
+      "destination": {
+        "service": "backend"
+      }
     },
     {
       "source": "/openapi.json",
-      "destination": "/api/index.py"
+      "destination": {
+        "service": "backend"
+      }
     },
     {
-      "source": "/((?!api$|api/|docs|openapi\\.json).*)",
-      "destination": "/index.html"
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
     }
   ]
 }
