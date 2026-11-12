@@ -75,9 +75,9 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-slate-50 flex">
+    <div className="relative w-full h-full overflow-y-auto lg:overflow-hidden bg-slate-50 flex flex-col lg:flex-row">
       {/* ── LEFT SIDEBAR: Search, Filters & Catalogue List (~360px) ── */}
-      <aside className="w-88 md:w-96 h-full bg-white border-r border-slate-200 flex flex-col p-4 gap-3.5 overflow-hidden shadow-xs shrink-0 z-10">
+      <aside className="order-2 lg:order-1 w-full lg:w-88 xl:w-96 h-auto lg:h-full max-h-[340px] lg:max-h-none bg-white border-t lg:border-t-0 lg:border-r border-slate-200 flex flex-col p-3.5 sm:p-4 gap-3 overflow-hidden shadow-xs shrink-0 z-10">
         
         {/* Title */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
@@ -105,7 +105,7 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
           {(['ALL', 'ACTIVE', 'DEBRIS', 'LEO', 'MEO'] as const).map(filter => (
             <button
               key={filter}
@@ -122,7 +122,7 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
         </div>
 
         {/* Objects Scroll List */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
           {filteredObjects.map(obj => {
             const isSelected = obj.id === activeObjectId;
             const isSentinelObj = obj.id === sentinel?.id;
@@ -183,7 +183,7 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
       </aside>
 
       {/* ── CENTER: 3D Orbital Visualization (~55% of screen) ── */}
-      <div className="relative flex-1 min-w-0 h-full">
+      <div className="order-1 lg:order-2 relative w-full lg:flex-1 min-w-0 h-[300px] sm:h-[380px] lg:h-full shrink-0">
         <OrbitalCanvas
           objects={objects}
           sentinel={sentinel}
@@ -202,13 +202,13 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
         />
 
         {/* 3D Camera Controls Bar */}
-        <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1.5 shadow-sm flex items-center gap-1">
-          <span className="text-[11px] font-medium text-slate-500 px-2 flex items-center gap-1">
+        <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-auto right-2.5 sm:right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1 sm:p-1.5 shadow-sm flex flex-wrap items-center gap-1 w-fit max-w-[calc(100%-1.25rem)]">
+          <span className="hidden sm:flex text-[11px] font-medium text-slate-500 px-2 items-center gap-1">
             <Compass className="w-3.5 h-3.5 text-blue-600" /> Perspective:
           </span>
           <button
             onClick={() => setCameraMode('GLOBAL')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+            className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
               cameraMode === 'GLOBAL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
@@ -216,7 +216,7 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
           </button>
           <button
             onClick={() => setCameraMode('LEO')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+            className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
               cameraMode === 'LEO' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
@@ -224,7 +224,7 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
           </button>
           <button
             onClick={() => setCameraMode('MEO')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+            className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
               cameraMode === 'MEO' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
@@ -232,7 +232,7 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
           </button>
           <button
             onClick={() => setCameraMode('GEO')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+            className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
               cameraMode === 'GEO' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
@@ -240,7 +240,7 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
           </button>
           <button
             onClick={() => activeObj && handleFollow(activeObj)}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+            className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
               cameraMode === 'FOLLOW_TARGET' || cameraMode === 'FOLLOW_SENTINEL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
@@ -251,19 +251,19 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
 
       {/* ── RIGHT PANEL: Object Details & Interactive Inspection (~360px) ── */}
       {activeObj && (
-        <aside className="w-88 md:w-96 h-full bg-white border-l border-slate-200 flex flex-col p-4 gap-3.5 overflow-y-auto shadow-xs shrink-0 z-10">
+        <aside className="order-3 w-full lg:w-88 xl:w-96 h-auto lg:h-full bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col p-3.5 sm:p-4 gap-3.5 lg:overflow-y-auto shadow-xs shrink-0 z-10">
           
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-            <div>
+            <div className="min-w-0">
               <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
                 {activeObj.object_type}
               </div>
-              <h2 className="text-sm font-bold text-slate-900 font-mono">
+              <h2 className="text-sm font-bold text-slate-900 font-mono truncate">
                 {activeObj.name}
               </h2>
             </div>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded shrink-0 ${
               activeObj.risk_level === 'CRITICAL'
                 ? 'bg-red-100 text-red-800'
                 : activeObj.risk_level === 'HIGH'
@@ -305,13 +305,13 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
               Current Cartesian State Vector
             </span>
             <div className="space-y-1.5 font-mono text-xs">
-              <div className="bg-white p-2 rounded-lg border border-slate-200/70 flex justify-between">
+              <div className="bg-white p-2 rounded-lg border border-slate-200/70 flex flex-wrap justify-between gap-1">
                 <span className="text-slate-500 font-sans">POSITION [X, Y, Z]:</span>
                 <span className="font-bold text-slate-900">
                   [{activeObj.position_x.toFixed(0)}, {activeObj.position_y.toFixed(0)}, {activeObj.position_z.toFixed(0)}] km
                 </span>
               </div>
-              <div className="bg-white p-2 rounded-lg border border-slate-200/70 flex justify-between">
+              <div className="bg-white p-2 rounded-lg border border-slate-200/70 flex flex-wrap justify-between gap-1">
                 <span className="text-slate-500 font-sans">VELOCITY [Vx, Vy, Vz]:</span>
                 <span className="font-bold text-blue-600">
                   [{activeObj.velocity_x.toFixed(2)}, {activeObj.velocity_y.toFixed(2)}, {activeObj.velocity_z.toFixed(2)}] km/s
@@ -328,19 +328,19 @@ export const ObjectExplorer: React.FC<ObjectExplorerProps> = ({
               </span>
               <div className="space-y-1 font-mono text-[11px] text-slate-700">
                 {activeObj.metadata.source && (
-                  <div className="flex justify-between">
+                  <div className="flex flex-wrap justify-between gap-1">
                     <span className="text-slate-500">Source Dataset:</span>
-                    <span className="font-semibold">{activeObj.metadata.source}</span>
+                    <span className="font-semibold break-all">{activeObj.metadata.source}</span>
                   </div>
                 )}
                 {activeObj.metadata.cross_section_m2 && (
-                  <div className="flex justify-between">
+                  <div className="flex flex-wrap justify-between gap-1">
                     <span className="text-slate-500">RCS / Cross Section:</span>
                     <span className="font-semibold">{activeObj.metadata.cross_section_m2} m²</span>
                   </div>
                 )}
                 {activeObj.metadata.tumble_rate_deg_s && (
-                  <div className="flex justify-between">
+                  <div className="flex flex-wrap justify-between gap-1">
                     <span className="text-slate-500">Tumble Rate:</span>
                     <span className="font-semibold text-amber-600">{activeObj.metadata.tumble_rate_deg_s}°/s</span>
                   </div>

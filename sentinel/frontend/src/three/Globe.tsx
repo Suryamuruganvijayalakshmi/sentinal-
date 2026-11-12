@@ -383,6 +383,7 @@ export default function Globe({
         canvas.style.display = "block";
         canvas.style.outline = "none";
         canvas.style.cursor = "grab";
+        canvas.style.touchAction = "none";
         container.appendChild(canvas);
 
         const dotSpacing = mapDensityUiToSpacing(dotDensityProp);
@@ -944,49 +945,14 @@ export default function Globe({
 
         animationFrameId = requestAnimationFrame(animate);
 
-        const handleMouseDown = (e: MouseEvent) => {
-            isDragging = true;
-            canvas.style.cursor = "grabbing";
-            velocity.x = 0;
-            velocity.y = 0;
-            lastMouseX = e.clientX;
-            lastMouseY = e.clientY;
-
-            const handleMouseMoveDrag = (me: MouseEvent) => {
-                const sensitivity = mapDragSpeedUiToSensitivity(dragSpeed);
-                const dx = me.clientX - lastMouseX;
-                const dy = me.clientY - lastMouseY;
-                targetRotation.x += dx * sensitivity;
-                targetRotation.y += dy * sensitivity;
-                targetRotation.y = Math.max(
-                    -Math.PI / 2,
-                    Math.min(Math.PI / 2, targetRotation.y)
-                );
-                velocity.x = dx * sensitivity * 0.3;
-                velocity.y = dy * sensitivity * 0.3;
-                lastMouseX = me.clientX;
-                lastMouseY = me.clientY;
-            };
-
-            const handleMouseUp = () => {
-                document.removeEventListener("mousemove", handleMouseMoveDrag);
-                document.removeEventListener("mouseup", handleMouseUp);
-                isDragging = false;
-                canvas.style.cursor = "grab";
-            };
-
-            document.addEventListener("mousemove", handleMouseMoveDrag);
-            document.addEventListener("mouseup", handleMouseUp);
-        };
-        canvas.addEventListener("mousedown", handleMouseDown);
-
         const raycaster = new Raycaster();
         const mouse = new Vector2();
 
-        const handleMouseMove = (e: MouseEvent) => {
+        const inspectAtClientPoint = (clientX: number, clientY: number) => {
             const rect = canvas.getBoundingClientRect();
-            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            if (!rect.width || !rect.height) return;
+            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
 
             const intersects = raycaster.intersectObject(oceanMesh);
@@ -1049,7 +1015,91 @@ export default function Globe({
                 if (onHoverLocationRef.current) onHoverLocationRef.current(null);
             }
         };
+
+        const handleMouseDown = (e: MouseEvent) => {
+            isDragging = true;
+            canvas.style.cursor = "grabbing";
+            velocity.x = 0;
+            velocity.y = 0;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            const handleMouseMoveDrag = (me: MouseEvent) => {
+                const sensitivity = mapDragSpeedUiToSensitivity(dragSpeed);
+                const dx = me.clientX - lastMouseX;
+                const dy = me.clientY - lastMouseY;
+                targetRotation.x += dx * sensitivity;
+                targetRotation.y += dy * sensitivity;
+                targetRotation.y = Math.max(
+                    -Math.PI / 2,
+                    Math.min(Math.PI / 2, targetRotation.y)
+                );
+                velocity.x = dx * sensitivity * 0.3;
+                velocity.y = dy * sensitivity * 0.3;
+                lastMouseX = me.clientX;
+                lastMouseY = me.clientY;
+            };
+
+            const handleMouseUp = () => {
+                document.removeEventListener("mousemove", handleMouseMoveDrag);
+                document.removeEventListener("mouseup", handleMouseUp);
+                isDragging = false;
+                canvas.style.cursor = "grab";
+            };
+
+            document.addEventListener("mousemove", handleMouseMoveDrag);
+            document.addEventListener("mouseup", handleMouseUp);
+        };
+        canvas.addEventListener("mousedown", handleMouseDown);
+
+        const handleTouchStart = (e: TouchEvent) => {
+            if (e.touches.length !== 1) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            isDragging = true;
+            velocity.x = 0;
+            velocity.y = 0;
+            lastMouseX = touch.clientX;
+            lastMouseY = touch.clientY;
+            inspectAtClientPoint(touch.clientX, touch.clientY);
+        };
+        const handleTouchMove = (e: TouchEvent) => {
+            if (!isDragging || e.touches.length !== 1) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const sensitivity = mapDragSpeedUiToSensitivity(dragSpeed);
+            const dx = touch.clientX - lastMouseX;
+            const dy = touch.clientY - lastMouseY;
+            targetRotation.x += dx * sensitivity;
+            targetRotation.y += dy * sensitivity;
+            targetRotation.y = Math.max(
+                -Math.PI / 2,
+                Math.min(Math.PI / 2, targetRotation.y)
+            );
+            velocity.x = dx * sensitivity * 0.3;
+            velocity.y = dy * sensitivity * 0.3;
+            lastMouseX = touch.clientX;
+            lastMouseY = touch.clientY;
+        };
+        const handleTouchEnd = () => {
+            isDragging = false;
+            isHovering = false;
+        };
+        canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+        canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+        canvas.addEventListener("touchend", handleTouchEnd);
+        canvas.addEventListener("touchcancel", handleTouchEnd);
+
+        const handleMouseMove = (e: MouseEvent) => {
+            inspectAtClientPoint(e.clientX, e.clientY);
+        };
+        const handleMouseLeave = () => {
+            isHovering = false;
+            setHoveredPlace(null);
+            if (onHoverLocationRef.current) onHoverLocationRef.current(null);
+        };
         canvas.addEventListener("mousemove", handleMouseMove);
+        canvas.addEventListener("mouseleave", handleMouseLeave);
 
         let resizeRafId: number | null = null;
         let lastObsWidth = Math.round(containerWidth);
@@ -1087,7 +1137,12 @@ export default function Globe({
             if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
             if (resizeRafId !== null) cancelAnimationFrame(resizeRafId);
             canvas.removeEventListener("mousedown", handleMouseDown);
+            canvas.removeEventListener("touchstart", handleTouchStart);
+            canvas.removeEventListener("touchmove", handleTouchMove);
+            canvas.removeEventListener("touchend", handleTouchEnd);
+            canvas.removeEventListener("touchcancel", handleTouchEnd);
             canvas.removeEventListener("mousemove", handleMouseMove);
+            canvas.removeEventListener("mouseleave", handleMouseLeave);
             resizeObserver.disconnect();
             clearDynamicMarkersGroup();
             labelMaterialCache.forEach((mat) => {
@@ -1153,16 +1208,16 @@ export default function Globe({
     return (
         <div ref={containerRef} style={containerStyle}>
             {hoveredPlace && (
-                <div className="absolute bottom-4 left-4 z-20 pointer-events-none bg-slate-950/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-sky-500/40 shadow-xl flex items-center gap-2.5 transition-all">
-                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-                    <div className="flex flex-col">
-                        <div className="text-[11px] font-bold text-white font-mono flex items-center gap-1.5">
-                            <span>{hoveredPlace.name}</span>
+                <div className="absolute bottom-2.5 sm:bottom-4 left-2.5 sm:left-4 z-20 pointer-events-none max-w-[calc(100%-8.5rem)] bg-slate-950/85 backdrop-blur-md px-2.5 sm:px-3 py-1.5 rounded-xl border border-sky-500/40 shadow-xl flex items-center gap-2 transition-all">
+                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                        <div className="text-[10px] sm:text-[11px] font-bold text-white font-mono flex items-center gap-1.5 truncate">
+                            <span className="truncate">{hoveredPlace.name}</span>
                             {hoveredPlace.country && (
-                                <span className="text-slate-400 font-normal">({hoveredPlace.country})</span>
+                                <span className="hidden sm:inline text-slate-400 font-normal">({hoveredPlace.country})</span>
                             )}
                         </div>
-                        <div className="text-[9px] text-sky-300 font-mono">
+                        <div className="text-[9px] text-sky-300 font-mono truncate">
                             {hoveredPlace.type} •{" "}
                             {hoveredPlace.lat >= 0
                                 ? `${hoveredPlace.lat.toFixed(1)}°N`

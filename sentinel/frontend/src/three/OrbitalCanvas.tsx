@@ -404,6 +404,7 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     renderer.domElement.style.display = 'block';
+    renderer.domElement.style.touchAction = 'none';
     rendererRef.current = renderer;
     container.appendChild(renderer.domElement);
 
@@ -1565,8 +1566,8 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
       {/* Visual Scale Indicator (Bottom-Left) */}
       <div style={{
         position: 'absolute',
-        bottom: 16,
-        left: 16,
+        bottom: hideControls ? 12 : 68,
+        left: 12,
         zIndex: 10,
         pointerEvents: 'none',
         display: 'flex',
@@ -1576,13 +1577,13 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
         backdropFilter: 'blur(8px)',
         border: `1px solid ${isLight ? 'rgba(203, 213, 225, 0.8)' : 'rgba(56, 189, 248, 0.25)'}`,
         borderRadius: 8,
-        padding: '5px 10px',
+        padding: '4px 8px',
         fontSize: '10px',
         fontFamily: 'var(--font-mono)',
         color: isLight ? '#475569' : '#94a3b8'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 48, height: 2, background: isLight ? '#2563eb' : '#00f0ff', borderRadius: 1 }} />
+          <div style={{ width: 40, height: 2, background: isLight ? '#2563eb' : '#00f0ff', borderRadius: 1 }} />
           <span style={{ fontWeight: 700, color: isLight ? '#0f172a' : '#f8fafc' }}>1,000 km</span>
         </div>
         <span style={{ fontSize: '9px', opacity: 0.8 }}>Scale: 1.0 unit = 1,000 km</span>
@@ -1592,21 +1593,25 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
       {!hideControls && (
         <div style={{
           position: 'absolute',
-          bottom: 24,
-          left: 24,
+          bottom: 12,
+          left: 12,
+          right: 12,
+          maxWidth: 'calc(100% - 24px)',
+          width: 'fit-content',
           zIndex: 20,
           display: 'flex',
+          flexWrap: 'wrap',
           alignItems: 'center',
-          gap: 8,
+          gap: 6,
           background: isLight ? 'rgba(255, 255, 255, 0.92)' : 'rgba(8, 14, 28, 0.85)',
           backdropFilter: 'blur(16px)',
           border: `1px solid ${isLight ? 'rgba(203, 213, 225, 0.9)' : 'rgba(56, 189, 248, 0.25)'}`,
           borderRadius: 12,
-          padding: '6px 10px',
+          padding: '6px 8px',
           boxShadow: isLight ? '0 8px 24px rgba(0, 0, 0, 0.08)' : '0 8px 32px rgba(0,0,0,0.45)'
         }}>
           {/* Camera Preset Quick Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderRight: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.15)'}`, paddingRight: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, paddingRight: 4 }}>
             <button
               onClick={() => onChangeCameraMode?.('FOLLOW_SENTINEL')}
               className={`cam-pill-btn ${cameraMode === 'FOLLOW_SENTINEL' ? 'active' : ''}`}

@@ -109,7 +109,7 @@ export function App() {
 
   if (!systemState) {
     return (
-      <div className="w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#5c64d8] to-[#4b52c8] text-white font-sans gap-3 px-6 text-center">
+      <div className="w-full h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-br from-[#5c64d8] to-[#4b52c8] text-white font-sans gap-3 px-6 text-center">
         <div className="w-10 h-10 border-3 border-white border-t-transparent rounded-full animate-spin" />
         <div className="text-sm font-semibold tracking-wide font-mono">
           CONNECTING TO SENTINEL SIMULATION ENGINE...
@@ -130,13 +130,13 @@ export function App() {
   }
 
   return (
-    <div className="w-screen h-screen bg-gradient-to-br from-[#5b63d3] via-[#757ee6] to-[#4c54cb] p-2 md:p-4 lg:p-5 flex items-center justify-center overflow-hidden font-sans">
+    <div className="w-full h-[100dvh] bg-gradient-to-br from-[#5b63d3] via-[#757ee6] to-[#4c54cb] p-0 sm:p-2 md:p-4 lg:p-5 flex items-center justify-center overflow-hidden font-sans">
       
       {/* ── MISSION CONTROL EXECUTIVE WORKSPACE SHELL ── */}
-      <div className="w-full max-w-[1620px] h-full bg-[#f4f6fc] rounded-[28px] md:rounded-[32px] shadow-2xl flex overflow-hidden border border-white/50 relative">
+      <div className="w-full max-w-[1620px] h-full bg-[#f4f6fc] rounded-none sm:rounded-[28px] md:rounded-[32px] shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 sm:border sm:border-white/50 relative">
         
-        {/* ── LEFT VERTICAL NAVIGATION RAIL ── */}
-        <aside className="w-16 md:w-18 bg-white border-r border-slate-100 flex flex-col items-center py-5 justify-between shrink-0 z-20">
+        {/* ── LEFT VERTICAL NAVIGATION RAIL (Desktop / Tablet Landscape) ── */}
+        <aside className="hidden md:flex w-16 md:w-18 bg-white border-r border-slate-100 flex-col items-center py-5 justify-between shrink-0 z-20">
           
           {/* Top Aerospace Telemetry Emblem */}
           <div
@@ -196,7 +196,7 @@ export function App() {
         </aside>
 
         {/* ── MAIN CONTENT AREA (Header + Active Viewport) ── */}
-        <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-[#f4f6fc]">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col md:h-full overflow-hidden bg-[#f4f6fc]">
           
           {/* Top Search & System Header */}
           <Header
@@ -290,6 +290,39 @@ export function App() {
             )}
           </main>
         </div>
+
+        {/* ── MOBILE BOTTOM NAVIGATION BAR (< md) ── */}
+        <nav
+          aria-label="Mobile Subsystem Navigation"
+          className="flex md:hidden items-center gap-1 overflow-x-auto no-scrollbar bg-white border-t border-slate-200 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shrink-0 z-30"
+        >
+          {navItems.map(item => {
+            const isActive = activeTab === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`min-w-[60px] px-2 py-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 shrink-0 transition-all ${
+                  isActive
+                    ? 'text-[#4f46e5] bg-indigo-50 font-bold'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-medium'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-[10px] leading-tight whitespace-nowrap">{item.label}</span>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => handleSelectScenario('Scenario 2: Avoidable Close Approach')}
+            title="Reset Simulation Scenario"
+            className="min-w-[54px] px-2 py-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 shrink-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+          >
+            <Power className="w-4 h-4" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">Reset</span>
+          </button>
+        </nav>
       </div>
 
       {/* ── 5-MINUTE EVALUATOR PRESENTATION MODE MODAL ── */}

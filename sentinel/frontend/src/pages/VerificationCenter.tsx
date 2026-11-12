@@ -74,87 +74,89 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
   const clearanceMargin = target ? verified_d_cpa - screening_distance_km : screening_distance_km;
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-slate-50 flex">
+    <div className="relative w-full h-full overflow-y-auto lg:overflow-hidden bg-slate-50 flex flex-col lg:flex-row">
       {/* ── LEFT: 3D Trajectory Overlay Viewport (~55% of screen) ── */}
-      <div className="relative flex-1 min-w-0 h-full">
-        <OrbitalCanvas
-          objects={objects}
-          sentinel={sentinel}
-          target={target}
-          risks={risks}
-          selectedObjectId={sentinel?.id || null}
-          onSelectObject={() => {}}
-          cameraMode={cameraMode}
-          onChangeCameraMode={setCameraMode}
-          onResetCamera={() => setCameraMode('PROXIMITY')}
-          predictedWaypoints={selected_candidate?.trajectory_waypoints}
-          interceptWaypoints={executed_maneuver?.trajectory_waypoints || selected_candidate?.trajectory_waypoints}
-          simTime={systemState.clock?.sim_time ?? 0}
-          isRunning={systemState.clock?.is_running}
-          timeScale={systemState.clock?.time_scale}
-          theme={theme}
-          hideControls={true}
-        />
+      <div className="w-full lg:flex-1 min-w-0 lg:h-full flex flex-col shrink-0 lg:relative">
+        <div className="relative w-full h-[300px] sm:h-[380px] lg:h-full">
+          <OrbitalCanvas
+            objects={objects}
+            sentinel={sentinel}
+            target={target}
+            risks={risks}
+            selectedObjectId={sentinel?.id || null}
+            onSelectObject={() => {}}
+            cameraMode={cameraMode}
+            onChangeCameraMode={setCameraMode}
+            onResetCamera={() => setCameraMode('PROXIMITY')}
+            predictedWaypoints={selected_candidate?.trajectory_waypoints}
+            interceptWaypoints={executed_maneuver?.trajectory_waypoints || selected_candidate?.trajectory_waypoints}
+            simTime={systemState.clock?.sim_time ?? 0}
+            isRunning={systemState.clock?.is_running}
+            timeScale={systemState.clock?.time_scale}
+            theme={theme}
+            hideControls={true}
+          />
 
-        {/* Legend */}
-        <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm flex items-center gap-3 text-xs font-mono">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-1 bg-red-500 rounded" />
-            <span className="text-slate-700 font-sans font-medium">Pre-Burn Intersecting Orbit</span>
+          {/* Legend */}
+          <div className="hidden sm:flex lg:flex absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-3.5 py-2 shadow-sm items-center gap-3 text-xs font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-1 bg-red-500 rounded" />
+              <span className="text-slate-700 font-sans font-medium">Pre-Burn Orbit</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-1 bg-emerald-500 rounded" />
+              <span className="text-slate-700 font-sans font-medium">Verified Orbit</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-1 bg-emerald-500 rounded" />
-            <span className="text-slate-700 font-sans font-medium">Verified Post-Maneuver Orbit</span>
-          </div>
-        </div>
 
-        {/* Camera Selector */}
-        <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1.5 shadow-sm flex items-center gap-1">
-          <button
-            onClick={() => setCameraMode('PROXIMITY')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-              cameraMode === 'PROXIMITY' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            Encounter View
-          </button>
-          <button
-            onClick={() => setCameraMode('GLOBAL')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-              cameraMode === 'GLOBAL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            Earth Orbit
-          </button>
-          <button
-            onClick={() => setCameraMode('FREE')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-              cameraMode === 'FREE' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            Free
-          </button>
+          {/* Camera Selector */}
+          <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-auto right-2.5 sm:right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1 sm:p-1.5 shadow-sm flex flex-wrap items-center gap-1 w-fit max-w-[calc(100%-1.25rem)]">
+            <button
+              onClick={() => setCameraMode('PROXIMITY')}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
+                cameraMode === 'PROXIMITY' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Encounter View
+            </button>
+            <button
+              onClick={() => setCameraMode('GLOBAL')}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
+                cameraMode === 'GLOBAL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Earth Orbit
+            </button>
+            <button
+              onClick={() => setCameraMode('FREE')}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
+                cameraMode === 'FREE' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Free
+            </button>
+          </div>
         </div>
 
         {/* Bottom Banner */}
-        <div className="absolute bottom-4 left-4 right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-3 shadow-md flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${isSafe ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+        <div className="lg:absolute lg:bottom-4 lg:left-4 lg:right-4 z-10 m-3 lg:m-0 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-3 shadow-sm lg:shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3 min-w-0">
+            <div className={`p-2 rounded-lg shrink-0 ${isSafe ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
               {isSafe ? <CheckCircle2 className="w-5 h-5" /> : <AlertOctagon className="w-5 h-5" />}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="font-bold text-xs text-slate-900 font-mono">
                 {isSafe ? 'ORBIT CLEARANCE VERIFIED SAFE' : 'SAFETY GATE: REVIEW REQUIRED'}
               </div>
               <div className="text-[11px] text-slate-600 font-sans">
-                Post-burn separation ({verified_d_cpa.toFixed(2)} km) exceeds safety threshold ({screening_distance_km.toFixed(1)} km) by +{clearanceMargin.toFixed(1)} km margin.
+                Post-burn separation ({verified_d_cpa.toFixed(2)} km) vs safety threshold ({screening_distance_km.toFixed(1)} km): {clearanceMargin >= 0 ? `+${clearanceMargin.toFixed(1)}` : clearanceMargin.toFixed(1)} km margin.
               </div>
             </div>
           </div>
 
           <button
             onClick={onNavigateToReports}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all"
+            className="w-full sm:w-auto justify-center bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 shrink-0 transition-all"
           >
             <FileText className="w-3.5 h-3.5" />
             View Mission Report
@@ -163,10 +165,10 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
       </div>
 
       {/* ── RIGHT PANEL: Before vs After Verification Metrics (~450px) ── */}
-      <aside className="w-[450px] lg:w-[480px] h-full bg-white border-l border-slate-200 flex flex-col p-5 gap-4 overflow-y-auto shadow-xs shrink-0 z-10">
+      <aside className="w-full lg:w-[430px] xl:w-[480px] h-auto lg:h-full bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col p-4 sm:p-5 gap-4 lg:overflow-y-auto shadow-xs shrink-0 z-10">
         
         {/* Title */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div>
             <div className="text-[10px] font-mono text-blue-600 font-bold uppercase tracking-wider">
               POST-MANEUVER VALIDATION
@@ -183,7 +185,7 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
         </div>
 
         {/* Side-by-Side Comparison Matrix */}
-        <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
           
           {/* BEFORE CARD */}
           <div className="bg-red-50/70 border border-red-200 rounded-xl p-3.5 flex flex-col gap-2 shadow-2xs">
@@ -244,10 +246,10 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
             Applied Avoidance Burn Parameters
           </span>
-          <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
             <div className="bg-white p-2 rounded-lg border border-slate-200">
               <span className="text-[10px] text-slate-500 font-sans block">BURN VECTOR</span>
-              <span className="font-bold text-slate-900">{maneuverName.split(' ')[0]}</span>
+              <span className="font-bold text-slate-900 break-words">{maneuverName.split(' ')[0]}</span>
             </div>
             <div className="bg-white p-2 rounded-lg border border-slate-200">
               <span className="text-[10px] text-slate-500 font-sans block">IMPULSE Δv</span>
@@ -263,35 +265,35 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
         {/* Official Conjunction Verification Certificate Card */}
         <section className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-2 shadow-2xs">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-900 font-mono">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            SENTINEL Trajectory Clearance Certificate
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>SENTINEL Trajectory Clearance Certificate</span>
           </div>
           <div className="space-y-1.5 font-mono text-[11px] text-slate-600 border-t border-slate-100 pt-2">
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-1">
               <span>Protected Satellite:</span>
               <span className="font-bold text-slate-900">{sentinel?.name || 'SAT-01'}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-1">
               <span>Threat Object:</span>
               <span className="font-bold text-slate-900">{target?.name || 'None Active (Nominal Orbit)'}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-1">
               <span>Screening Threshold:</span>
               <span className="font-bold text-slate-900">{screening_distance_km.toFixed(1)} km</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-1">
               <span>Post-Burn Minimum Miss Distance:</span>
               <span className={`font-bold ${isSafe ? 'text-emerald-700' : 'text-red-700'}`}>
                 {target ? `${verified_d_cpa.toFixed(2)} km` : 'No Threat Detected'}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-1">
               <span>Safety Margin Above Threshold:</span>
               <span className={`font-bold ${clearanceMargin >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                 {clearanceMargin >= 0 ? '+' : ''}{clearanceMargin.toFixed(2)} km
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-1">
               <span>Verification Status:</span>
               <span className={`font-bold ${
                 hasExecutedBurn

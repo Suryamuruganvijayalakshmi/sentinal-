@@ -124,15 +124,15 @@ export const Simulator: React.FC<SimulatorProps> = ({
   const liveRelVelKms = sentinel?.target_rel_velocity_kms ?? 0;
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-[#f4f6fc] p-5 md:p-6 flex flex-col gap-5">
-      <div className="max-w-7xl mx-auto w-full flex flex-col gap-5">
+    <div className="w-full h-full overflow-y-auto bg-[#f4f6fc] p-3.5 sm:p-5 md:p-6 flex flex-col gap-4 sm:gap-5">
+      <div className="max-w-7xl mx-auto w-full flex flex-col gap-4 sm:gap-5">
 
         {/* Page Title & Live Status Pill */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-indigo-600" />
-              RK4 Orbital Simulator & Propagation Controls
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-indigo-600 shrink-0" />
+              <span>RK4 Orbital Simulator & Propagation Controls</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               Live two-body Runge-Kutta propagation clock, 3D orbital visualization, deterministic scenarios & autonomous collision avoidance.
@@ -154,13 +154,13 @@ export const Simulator: React.FC<SimulatorProps> = ({
         </div>
 
         {/* ── 1. MASTER CLOCK, STEP & SPEED BAR ── */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
               {clock.is_running ? (
                 <button
                   onClick={handlePause}
-                  className="bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-xl shadow-xs transition-all"
+                  className="bg-amber-500 hover:bg-amber-600 text-white p-2.5 sm:p-3 rounded-xl shadow-xs transition-all"
                   title="Pause Simulation"
                 >
                   <Pause className="w-5 h-5" />
@@ -168,7 +168,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
               ) : (
                 <button
                   onClick={handlePlay}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl shadow-xs transition-all"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 sm:p-3 rounded-xl shadow-xs transition-all"
                   title="Run Simulation"
                 >
                   <Play className="w-5 h-5" />
@@ -176,7 +176,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
               )}
               <button
                 onClick={handleReset}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-3 rounded-xl border border-slate-200 shadow-2xs transition-all"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-2xs transition-all"
                 title="Reset Clock to T=0"
               >
                 <RotateCcw className="w-5 h-5" />
@@ -185,14 +185,14 @@ export const Simulator: React.FC<SimulatorProps> = ({
 
             <div>
               <div className="text-[10px] font-mono text-slate-500 uppercase">SIMULATION CLOCK</div>
-              <div className="text-xl font-bold font-mono text-slate-900">
+              <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
                 T+{(clock.sim_time || 0).toFixed(1)}s
               </div>
             </div>
           </div>
 
           {/* Step Forward Controls */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold text-slate-500 mr-1 flex items-center gap-1">
               <SkipForward className="w-3.5 h-3.5 text-indigo-600" /> Step:
             </span>
@@ -209,7 +209,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
           </div>
 
           {/* Speed Selectors */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-semibold text-slate-600 mr-1 flex items-center gap-1">
               <FastForward className="w-4 h-4 text-indigo-600" /> Speed:
             </span>
@@ -217,7 +217,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
               <button
                 key={spd}
                 onClick={() => handleSetSpeed(spd)}
-                className={`px-3 py-1.5 text-xs font-mono font-bold rounded-xl transition-all ${
+                className={`px-2.5 sm:px-3 py-1.5 text-xs font-mono font-bold rounded-xl transition-all ${
                   clock.time_scale === spd
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
@@ -232,7 +232,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
           <button
             onClick={handleRunAutonomous}
             disabled={isAutoRunning}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-2 transition-all active:scale-95"
+            className="w-full sm:w-auto justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-2 transition-all active:scale-95"
           >
             <Zap className="w-4 h-4" />
             {isAutoRunning ? 'Engaging...' : 'Run Autonomous Avoidance'}
@@ -240,11 +240,11 @@ export const Simulator: React.FC<SimulatorProps> = ({
         </div>
 
         {/* ── 2. LIVE 3D SIMULATION VIEWPORT + LIVE TELEMETRY CHART ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
 
           {/* Left: Interactive 3D Orbit Canvas (7 cols) */}
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col gap-3 min-w-0">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2 shrink-0">
+          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col gap-3 min-w-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 shrink-0">
               <div className="flex items-center gap-2">
                 <Compass className="w-4 h-4 text-indigo-600" />
                 <span className="text-xs font-bold text-slate-900">
@@ -258,7 +258,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
                   <button
                     key={mode}
                     onClick={() => setCameraMode(mode)}
-                    className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
+                    className={`px-2 sm:px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
                       cameraMode === mode ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -268,7 +268,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
               </div>
             </div>
 
-            <div className="relative w-full h-[380px] lg:h-[410px] rounded-xl overflow-hidden border border-slate-200 bg-slate-900 shrink-0">
+            <div className="relative w-full h-[320px] sm:h-[380px] lg:h-[410px] rounded-xl overflow-hidden border border-slate-200 bg-slate-900 shrink-0">
               <OrbitalCanvas
                 objects={objects}
                 sentinel={sentinel}
@@ -288,36 +288,36 @@ export const Simulator: React.FC<SimulatorProps> = ({
               />
 
               {/* Live SAT-01 Autonomous Workflow Status Pill (Top-Left) */}
-              <div className="absolute top-3 left-3 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs flex items-center gap-2 text-[11px] font-mono">
-                <span className={`w-2 h-2 rounded-full ${
+              <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 z-10 max-w-[calc(100%-1.25rem)] bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 shadow-xs flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] font-mono">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${
                   sentinel?.status === 'MANEUVER' ? 'bg-blue-600 animate-ping' :
                   sentinel?.status === 'INSPECTING' ? 'bg-sky-500 animate-pulse' :
                   safety_status === 'REVIEW REQUIRED' ? 'bg-rose-500 animate-pulse' :
                   'bg-emerald-500 animate-pulse'
                 }`} />
-                <span className="text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider">SAT-01 DUTY:</span>
-                <strong className="text-slate-900">
+                <span className="text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider shrink-0">SAT-01 DUTY:</span>
+                <strong className="text-slate-900 truncate">
                   {(sentinel?.mission_phase || sentinel?.status || 'ORBITAL_PATROL').replace(/_/g, ' ')}
                 </strong>
               </div>
 
               {/* Live telemetry overlay pill */}
-              <div className="absolute bottom-3 left-3 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-3.5 py-2 shadow-xs flex items-center gap-4 text-[11px] font-mono">
+              <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-auto z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-3 sm:px-3.5 py-2 shadow-xs grid grid-cols-2 sm:flex sm:items-center gap-x-3 gap-y-1.5 sm:gap-4 text-[10px] sm:text-[11px] font-mono">
                 <div>
                   <span className="text-[9px] text-slate-400 block font-sans">SAT-01 ALTITUDE</span>
                   <strong className="text-slate-900">{sentinel?.altitude?.toFixed(2) || '600.00'} km</strong>
                 </div>
-                <div className="border-l border-slate-200 pl-3">
+                <div className="sm:border-l sm:border-slate-200 sm:pl-3">
                   <span className="text-[9px] text-slate-400 block font-sans">THREAT RANGE</span>
                   <strong className={liveDistanceKm < screeningInput && target ? 'text-rose-600' : 'text-indigo-600'}>
                     {target ? `${liveDistanceKm.toFixed(1)} km` : 'No Threat'}
                   </strong>
                 </div>
-                <div className="border-l border-slate-200 pl-3">
+                <div className="sm:border-l sm:border-slate-200 sm:pl-3">
                   <span className="text-[9px] text-slate-400 block font-sans">CLOSING VEL</span>
                   <strong className="text-slate-800">{liveRelVelKms.toFixed(2)} km/s</strong>
                 </div>
-                <div className="border-l border-slate-200 pl-3">
+                <div className="sm:border-l sm:border-slate-200 sm:pl-3">
                   <span className="text-[9px] text-slate-400 block font-sans">FUEL</span>
                   <strong className="text-emerald-600">{sentinel?.fuel_kg?.toFixed(1) || '150.0'} kg</strong>
                 </div>
@@ -432,15 +432,15 @@ export const Simulator: React.FC<SimulatorProps> = ({
         </div>
 
         {/* ── 4. SCREENING DISTANCE SLIDER ── */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
-          <div className="flex justify-between items-center">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3">
+          <div className="flex flex-wrap justify-between items-start sm:items-center gap-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900">Safety Screening Threshold Distance</h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Adjust the radial conjunction clearance threshold around SAT-01 (default: 25.0 km).
               </p>
             </div>
-            <span className="font-mono text-base font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-xl">
+            <span className="font-mono text-sm sm:text-base font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-xl shrink-0">
               {screeningInput.toFixed(1)} km
             </span>
           </div>

@@ -95,21 +95,21 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-slate-100 p-6 flex flex-col gap-6">
+    <div className="w-full h-full overflow-y-auto bg-slate-100 p-3.5 sm:p-6 flex flex-col gap-4 sm:gap-6">
 
       {/* Top Action Bar */}
-      <div className="max-w-4xl mx-auto w-full flex items-center justify-between no-print">
+      <div className="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" />
-            Mission Flight & Conjunction Report
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600 shrink-0" />
+            <span>Mission Flight & Conjunction Report</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Aerospace-grade flight summary and before-and-after avoidance verification audit.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleDownloadCSV}
             className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all"
@@ -128,15 +128,15 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
       </div>
 
       {/* Printable Report Document Body */}
-      <article className="max-w-4xl mx-auto w-full bg-white border border-slate-300 rounded-2xl p-8 md:p-12 shadow-sm flex flex-col gap-8 print:border-none print:shadow-none print:p-0">
+      <article className="max-w-4xl mx-auto w-full bg-white border border-slate-300 rounded-2xl p-4 sm:p-8 md:p-12 shadow-sm flex flex-col gap-6 sm:gap-8 print:border-none print:shadow-none print:p-0">
 
         {/* Document Header & Metadata */}
-        <header className="border-b-2 border-slate-900 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <header className="border-b-2 border-slate-900 pb-5 sm:pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-blue-600 font-mono font-black text-sm tracking-widest uppercase">
+            <div className="flex items-center gap-2 text-blue-600 font-mono font-black text-xs sm:text-sm tracking-widest uppercase">
               <span>SENTINEL ORBITAL SAFETY COMMAND CENTRE</span>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 font-mono tracking-tight mt-1">
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900 font-mono tracking-tight mt-1">
               CONJUNCTION ASSESSMENT & FLIGHT VERIFICATION REPORT
             </h2>
             <div className="text-xs text-slate-500 font-mono mt-1">
@@ -144,7 +144,7 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
             </div>
           </div>
 
-          <div className="text-right font-mono text-xs text-slate-600 shrink-0">
+          <div className="text-left md:text-right font-mono text-xs text-slate-600 md:shrink-0 space-y-0.5 break-all sm:break-normal">
             <div><span className="text-slate-400">DOC ID:</span> <strong className="text-slate-900">{reportId}</strong></div>
             <div><span className="text-slate-400">DATE:</span> {generatedTime}</div>
             <div><span className="text-slate-400">CLASS:</span> EDUCATIONAL RESEARCH PROTOTYPE</div>
@@ -174,7 +174,8 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
             2. Before vs After Conjunction Telemetry Matrix
           </h3>
 
-          <table className="w-full text-left border-collapse text-xs font-mono">
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full min-w-[540px] text-left border-collapse text-xs font-mono">
             <thead>
               <tr className="bg-slate-100 text-slate-700 border-y border-slate-300">
                 <th className="py-2.5 px-3">Flight Parameter</th>
@@ -228,6 +229,7 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
               </tr>
             </tbody>
           </table>
+          </div>
         </section>
 
         {/* 3. Avoidance Maneuver Details */}
@@ -238,7 +240,7 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
               <span className="text-[10px] text-slate-500 font-sans block">Burn Identification</span>
-              <span className="font-bold text-slate-900 mt-1 block">{maneuverName}</span>
+              <span className="font-bold text-slate-900 mt-1 block break-words">{maneuverName}</span>
             </div>
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
               <span className="text-[10px] text-slate-500 font-sans block">Velocity Change Magnitude</span>
@@ -260,7 +262,7 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
           <h3 className="text-xs font-bold font-mono text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-1">
             4. Deterministic Mathematical Methodology
           </h3>
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-mono space-y-2 text-slate-800">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 text-xs font-mono space-y-2 text-slate-800 overflow-x-auto break-words">
             <div>
               <strong>1. Time of Closest Approach:</strong> <code>t_CPA = -(r_rel · v_rel) / ||v_rel||²</code>
             </div>
@@ -279,7 +281,7 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
         {/* 5. Mandatory Technical Honesty Disclosure */}
         <section className="border-t border-slate-200 pt-4 flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-900 font-mono">
-            <Info className="w-4 h-4 text-blue-600" />
+            <Info className="w-4 h-4 text-blue-600 shrink-0" />
             Mandatory Research & Technical Honesty Disclosure
           </div>
           <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
@@ -291,7 +293,7 @@ export const MissionReports: React.FC<MissionReportsProps> = ({ systemState }) =
         </section>
 
         {/* Sign-off Seal */}
-        <footer className="border-t-2 border-slate-900 pt-4 flex justify-between items-center text-xs font-mono text-slate-500">
+        <footer className="border-t-2 border-slate-900 pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs font-mono text-slate-500">
           <div>SENTINEL Verification Engine v2.0 • Deterministic Safety Sign-off</div>
           <div className={`flex items-center gap-1.5 font-bold ${
             hasExecutedBurn ? (isSafe ? 'text-emerald-700' : 'text-red-700') : 'text-amber-700'

@@ -142,22 +142,22 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
     : Math.max(1.05, Number((thresholdKm * 1.05).toFixed(2)));
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-[#f4f6fc] p-5 md:p-6 flex flex-col gap-6 text-slate-800">
-      <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
+    <div className="w-full h-full overflow-y-auto bg-[#f4f6fc] p-3.5 sm:p-5 md:p-6 flex flex-col gap-4 sm:gap-6 text-slate-800">
+      <div className="max-w-7xl mx-auto w-full flex flex-col gap-4 sm:gap-6">
 
         {/* ── HEADER ── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-600" />
-              Orbital Conjunction Simulation & Statistical Analytics
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-indigo-600 shrink-0" />
+              <span>Orbital Conjunction Simulation & Statistical Analytics</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               30-day Monte Carlo LEO conjunction campaign grounded in optical surveillance shells, tracking covariance, correlation analysis & avoidance burn verification.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => fetchEncounterAnalytics(seed + 1)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
@@ -216,7 +216,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 onClick={() => (systemState.clock.is_running ? api.pause() : api.play())}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
@@ -238,13 +238,13 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
         )}
 
         {/* ── INTERACTIVE MONTE CARLO PARAMETER BAR ── */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-800 shrink-0">
             <Sliders className="w-4 h-4 text-indigo-600" />
             <span>Campaign Simulator Parameters</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4 flex-1">
             <div>
               <div className="flex justify-between text-[11px] font-mono mb-1">
                 <span className="text-slate-500">Manoeuvre Δv</span>
@@ -325,62 +325,62 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
         </div>
 
         {/* ── KPI STRIP ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs">
             <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
               TOTAL SIMULATED ENCOUNTERS
             </span>
-            <span className="text-2xl font-bold font-mono text-slate-900 mt-1 block">
+            <span className="text-lg sm:text-2xl font-bold font-mono text-slate-900 mt-1 block">
               {(summary?.total_encounters ?? 9985).toLocaleString()}
             </span>
-            <span className="text-[11px] text-slate-500 font-sans mt-0.5 block">
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-sans mt-0.5 block">
               Across {days}-day LEO conjunction window
             </span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs">
             <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
               HIGH-RISK CONJUNCTIONS (&le; {thresholdKm.toFixed(1)} km)
             </span>
-            <span className="text-2xl font-bold font-mono text-rose-600 mt-1 block">
+            <span className="text-lg sm:text-2xl font-bold font-mono text-rose-600 mt-1 block">
               {(summary?.high_risk_count ?? 440).toLocaleString()}
             </span>
-            <span className="text-[11px] text-slate-500 font-sans mt-0.5 block">
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-sans mt-0.5 block">
               Requiring active avoidance burn planning
             </span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs">
             <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
               AVOIDANCE BURN CLEARANCE RATE
             </span>
-            <span className="text-2xl font-bold font-mono text-emerald-600 mt-1 block">
+            <span className="text-lg sm:text-2xl font-bold font-mono text-emerald-600 mt-1 block">
               {summary?.avoidance_success_rate_pct ?? 100}%
             </span>
-            <span className="text-[11px] text-slate-500 font-sans mt-0.5 block">
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-sans mt-0.5 block">
               {summary?.avoidance_cleared ?? 320} / {summary?.avoidance_tested ?? 320} cleared &ge; {thresholdKm.toFixed(1)} km
             </span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs">
             <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
               MEAN DAILY ENCOUNTERS
             </span>
-            <span className="text-2xl font-bold font-mono text-indigo-600 mt-1 block">
+            <span className="text-lg sm:text-2xl font-bold font-mono text-indigo-600 mt-1 block">
               {summary?.mean_daily_encounters ?? 332.8} / day
             </span>
-            <span className="text-[11px] text-slate-500 font-sans mt-0.5 block">
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-sans mt-0.5 block">
               Medium Risk (&le;15 km): {(summary?.medium_risk_count ?? 2200).toLocaleString()}
             </span>
           </div>
         </div>
 
         {/* ── ROW 1: PLOT 1 (HISTOGRAM) & PLOT 2 (MISS VS UNCERTAINTY) ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
 
           {/* PLOT 1: Distribution of miss distance */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-bold text-slate-900">Distribution of miss distance</h2>
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700">
                 <span className="inline-block w-5 border-t-2 border-dashed border-red-600" />
@@ -388,7 +388,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
               </div>
             </div>
 
-            <div className="w-full h-[300px]">
+            <div className="w-full h-[240px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={missHistogram} margin={{ top: 14, right: 16, left: 6, bottom: 24 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -448,10 +448,10 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
           </div>
 
           {/* PLOT 2: Miss distance vs tracking uncertainty */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-bold text-slate-900">Miss distance vs tracking uncertainty</h2>
-              <div className="flex items-center gap-3 text-[11px] font-medium text-slate-700">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] font-medium text-slate-700">
                 <span className="text-slate-400 font-semibold">Risk:</span>
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#3b8246]" /> Low
@@ -470,7 +470,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
               </div>
             </div>
 
-            <div className="w-full h-[300px]">
+            <div className="w-full h-[240px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 14, right: 16, left: 6, bottom: 24 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -542,86 +542,88 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
         </div>
 
         {/* ── ROW 2: PLOT 3 (CORRELATION MATRIX) & PLOT 4 (AVOIDANCE MANEUVER EFFECT) ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
 
           {/* PLOT 3: Correlation Matrix (5 cols) */}
-          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
               <h2 className="text-sm font-bold text-slate-900">Correlation matrix</h2>
               <span className="text-[10px] font-mono text-slate-400">Pearson r (&minus;1.00 to +1.00)</span>
             </div>
 
-            <div className="flex items-center justify-center gap-4 py-2 flex-1">
-              {/* Matrix + Labels */}
-              <div className="flex flex-col">
-                <div className="flex items-stretch">
-                  {/* Left Row Labels */}
-                  <div className="flex flex-col justify-around pr-2.5 text-right text-[11px] font-medium text-slate-700 select-none">
+            <div className="overflow-x-auto flex-1 flex items-center justify-center py-2">
+              <div className="flex items-center justify-center gap-2.5 sm:gap-4 shrink-0">
+                {/* Matrix + Labels */}
+                <div className="flex flex-col">
+                  <div className="flex items-stretch">
+                    {/* Left Row Labels */}
+                    <div className="flex flex-col justify-around pr-1.5 sm:pr-2.5 text-right text-[10px] sm:text-[11px] font-medium text-slate-700 select-none">
+                      {corrLabels.map(lbl => (
+                        <div key={lbl} className="h-11 sm:h-14 flex items-center justify-end whitespace-nowrap">
+                          {lbl}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 4x4 Heatmap Cells */}
+                    <div className="grid grid-cols-4 border-l border-b border-slate-800">
+                      {corrMatrix.map((row, rIdx) =>
+                        row.map((val, cIdx) => {
+                          const bg = correlationToColor(val);
+                          const isDarkBg = Math.abs(val) >= 0.55;
+                          return (
+                            <div
+                              key={`${rIdx}-${cIdx}`}
+                              title={`${corrLabels[rIdx]} vs ${corrLabels[cIdx]}: r = ${val.toFixed(2)}`}
+                              style={{ backgroundColor: bg }}
+                              className={`w-11 h-11 sm:w-14 md:w-16 sm:h-14 flex items-center justify-center font-mono text-[10px] sm:text-xs font-semibold transition-transform hover:scale-105 hover:z-10 hover:ring-1 hover:ring-slate-900 ${
+                                isDarkBg ? 'text-white' : 'text-slate-900'
+                              }`}
+                            >
+                              {val.toFixed(2)}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Column Labels */}
+                  <div className="flex items-start mt-2 pl-12 sm:pl-16">
                     {corrLabels.map(lbl => (
-                      <div key={lbl} className="h-14 flex items-center justify-end">
+                      <div key={lbl} className="w-11 sm:w-14 md:w-16 text-center text-[10px] sm:text-[11px] font-medium text-slate-700 -rotate-25 origin-top-left pt-1 whitespace-nowrap">
                         {lbl}
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  {/* 4x4 Heatmap Cells */}
-                  <div className="grid grid-cols-4 border-l border-b border-slate-800">
-                    {corrMatrix.map((row, rIdx) =>
-                      row.map((val, cIdx) => {
-                        const bg = correlationToColor(val);
-                        const isDarkBg = Math.abs(val) >= 0.55;
-                        return (
-                          <div
-                            key={`${rIdx}-${cIdx}`}
-                            title={`${corrLabels[rIdx]} vs ${corrLabels[cIdx]}: r = ${val.toFixed(2)}`}
-                            style={{ backgroundColor: bg }}
-                            className={`w-14 h-14 sm:w-16 sm:h-14 flex items-center justify-center font-mono text-xs font-semibold transition-transform hover:scale-105 hover:z-10 hover:ring-1 hover:ring-slate-900 ${
-                              isDarkBg ? 'text-white' : 'text-slate-900'
-                            }`}
-                          >
-                            {val.toFixed(2)}
-                          </div>
-                        );
-                      })
-                    )}
+                {/* Divergent Vertical Colorbar Legend */}
+                <div className="flex items-stretch gap-1 sm:gap-1.5 h-44 sm:h-56 shrink-0">
+                  <div
+                    className="w-3 sm:w-3.5 rounded-xs border border-slate-700"
+                    style={{
+                      background: 'linear-gradient(to bottom, #67001f 0%, #ef4444 25%, #f8fafc 50%, #3b82f6 75%, #053061 100%)'
+                    }}
+                  />
+                  <div className="flex flex-col justify-between text-[9px] sm:text-[10px] font-mono text-slate-600 leading-none py-0.5">
+                    <span>1.00</span>
+                    <span>0.75</span>
+                    <span>0.50</span>
+                    <span>0.25</span>
+                    <span>0.00</span>
+                    <span>&minus;0.25</span>
+                    <span>&minus;0.50</span>
+                    <span>&minus;0.75</span>
+                    <span>&minus;1.00</span>
                   </div>
-                </div>
-
-                {/* Bottom Column Labels */}
-                <div className="flex items-start mt-2 pl-16">
-                  {corrLabels.map(lbl => (
-                    <div key={lbl} className="w-14 sm:w-16 text-center text-[11px] font-medium text-slate-700 -rotate-25 origin-top-left pt-1">
-                      {lbl}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Divergent Vertical Colorbar Legend */}
-              <div className="flex items-stretch gap-1.5 h-56 shrink-0">
-                <div
-                  className="w-3.5 rounded-xs border border-slate-700"
-                  style={{
-                    background: 'linear-gradient(to bottom, #67001f 0%, #ef4444 25%, #f8fafc 50%, #3b82f6 75%, #053061 100%)'
-                  }}
-                />
-                <div className="flex flex-col justify-between text-[10px] font-mono text-slate-600 leading-none py-0.5">
-                  <span>1.00</span>
-                  <span>0.75</span>
-                  <span>0.50</span>
-                  <span>0.25</span>
-                  <span>0.00</span>
-                  <span>&minus;0.25</span>
-                  <span>&minus;0.50</span>
-                  <span>&minus;0.75</span>
-                  <span>&minus;1.00</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* PLOT 4: Effect of simulated avoidance manoeuvre (7 cols) */}
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-2">
+          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Effect of simulated avoidance manoeuvre</h2>
@@ -630,7 +632,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {sessionManeuvers.length > 0 && (
                   <label className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg cursor-pointer">
                     <input
@@ -649,7 +651,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
               </div>
             </div>
 
-            <div className="w-full h-[290px]">
+            <div className="w-full h-[240px] sm:h-[290px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 14, right: 16, left: 6, bottom: 24 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -751,7 +753,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
         </div>
 
         {/* ── ROW 3: PLOT 5 (DAILY ENCOUNTER COUNT - FULL WIDTH) ── */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-2">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-xs flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-blue-600" />
@@ -762,7 +764,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
             </span>
           </div>
 
-          <div className="w-full h-[280px]">
+          <div className="w-full h-[240px] sm:h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dailyEncounters} margin={{ top: 14, right: 20, left: 6, bottom: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -827,9 +829,9 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
         </div>
 
         {/* ── OPTICAL CATALOGUE DISTRIBUTIONS BREAKDOWN ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {/* Altitude Distribution */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-xs flex flex-col gap-3">
             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5 text-blue-600" /> Tracked Catalogue Altitude Distribution (LEO)
@@ -865,7 +867,7 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
           </div>
 
           {/* Inclination Distribution */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-xs flex flex-col gap-3">
             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <PieChart className="w-3.5 h-3.5 text-emerald-600" /> Inclination Regimes
@@ -899,27 +901,27 @@ export const OrbitalAnalytics: React.FC<OrbitalAnalyticsProps> = ({ systemState 
         </div>
 
         {/* ── CATALOGUE OBJECT SEARCH & SAMPLE TABLE ── */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-xs flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-slate-900">Catalogue Objects Sample Preview</h2>
               <p className="text-xs text-slate-500">Derived orbital state vectors and cross-section estimates.</p>
             </div>
 
-            <div className="relative">
+            <div className="relative w-full md:w-auto">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search by ID or type..."
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 w-56"
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full md:w-56"
               />
             </div>
           </div>
 
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="border border-slate-200 rounded-xl overflow-x-auto">
+            <table className="w-full min-w-[540px] text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-600 font-mono text-[10px] uppercase border-b border-slate-200">
                   <th className="py-2.5 px-3">Object ID</th>

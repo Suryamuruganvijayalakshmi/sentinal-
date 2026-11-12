@@ -143,23 +143,23 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
   const currentFormula = formulas.find(f => f.id === activeFormula) || formulas[3];
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-slate-50 p-6 flex flex-col gap-6">
-      <div className="max-w-6xl mx-auto w-full flex flex-col gap-6">
+    <div className="w-full h-full overflow-y-auto bg-slate-50 p-3.5 sm:p-5 md:p-6 flex flex-col gap-4 sm:gap-6">
+      <div className="max-w-6xl mx-auto w-full flex flex-col gap-4 sm:gap-6">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-blue-600" />
-              Educational Formula Laboratory
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-blue-600 shrink-0" />
+              <span>Educational Formula Laboratory</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               Rigorous mathematical formulations governing relative orbital mechanics, conjunction prediction, and maneuver planning.
             </p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs px-3 py-1.5 rounded-xl font-mono flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs px-3 py-1.5 rounded-xl font-mono flex items-center gap-1.5 w-fit">
+            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span>Deterministic 3D Vector Math • Verified</span>
           </div>
         </div>
@@ -190,13 +190,13 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
         </div>
 
         {/* Active Formula Exploration Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col gap-5 sm:gap-6">
           
           <div className="border-b border-slate-100 pb-4">
             <div className="text-xs font-mono font-bold text-blue-600 uppercase tracking-wider">
               MATHEMATICAL SPECIFICATION
             </div>
-            <h2 className="text-lg font-bold text-slate-900 mt-1">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 mt-1">
               {currentFormula.title}
             </h2>
             <p className="text-xs text-slate-600 mt-1">
@@ -205,12 +205,12 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
           </div>
 
           {/* Mathematical Formula Display Box */}
-          <div className="bg-slate-900 text-white rounded-xl p-6 flex flex-col items-center justify-center gap-2 shadow-inner font-mono text-base md:text-lg tracking-wide border border-slate-800">
-            <div className="text-cyan-400 font-bold text-center">
+          <div className="bg-slate-900 text-white rounded-xl p-4 sm:p-6 flex flex-col items-center justify-center gap-2 shadow-inner font-mono text-sm sm:text-base md:text-lg tracking-wide border border-slate-800 overflow-x-auto">
+            <div className="text-cyan-400 font-bold text-center break-words max-w-full">
               {currentFormula.symbol}
             </div>
-            <div className="text-[11px] text-slate-400 font-sans">
-              LaTeX Expression: <code className="text-slate-300 font-mono text-[10px]">{currentFormula.equation}</code>
+            <div className="text-[11px] text-slate-400 font-sans text-center max-w-full">
+              LaTeX Expression: <code className="text-slate-300 font-mono text-[10px] break-all">{currentFormula.equation}</code>
             </div>
           </div>
 
@@ -232,12 +232,12 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
 
           {/* Live Interactive Calculation Sandbox */}
           <div className="border-t border-slate-100 pt-4 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <h3 className="text-xs font-bold text-slate-800 font-mono uppercase tracking-wider flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-blue-600" />
-                Live Numerical Calculator & Verification
+                <Sliders className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>Live Numerical Calculator & Verification</span>
               </h3>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => setLiveSync(v => !v)}
                   className={`text-xs px-2.5 py-1 rounded-lg font-semibold border transition-all flex items-center gap-1.5 ${
@@ -270,18 +270,18 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
               
               {/* Spacecraft 1 Inputs */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
-                <div className="font-bold text-slate-800 flex justify-between">
+                <div className="font-bold text-slate-800 flex flex-wrap justify-between gap-1">
                   <span>SAT-01 Position & Velocity</span>
                   <span className="text-[10px] text-blue-600">SPACECRAFT 1</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   <div>
                     <label className="text-[10px] text-slate-500 block">X (km)</label>
                     <input
                       type="number"
                       value={r1.x}
                       onChange={e => { setLiveSync(false); setR1({ ...r1, x: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -290,7 +290,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       type="number"
                       value={r1.y}
                       onChange={e => { setLiveSync(false); setR1({ ...r1, y: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -299,11 +299,11 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       type="number"
                       value={r1.z}
                       onChange={e => { setLiveSync(false); setR1({ ...r1, z: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-1">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-1">
                   <div>
                     <label className="text-[10px] text-slate-500 block">Vx (km/s)</label>
                     <input
@@ -311,7 +311,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       step="0.1"
                       value={v1.x}
                       onChange={e => { setLiveSync(false); setV1({ ...v1, x: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -321,7 +321,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       step="0.1"
                       value={v1.y}
                       onChange={e => { setLiveSync(false); setV1({ ...v1, y: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -331,7 +331,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       step="0.1"
                       value={v1.z}
                       onChange={e => { setLiveSync(false); setV1({ ...v1, z: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                 </div>
@@ -339,18 +339,18 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
 
               {/* Spacecraft 2 (Debris) Inputs */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
-                <div className="font-bold text-slate-800 flex justify-between">
+                <div className="font-bold text-slate-800 flex flex-wrap justify-between gap-1">
                   <span>Debris Position & Velocity</span>
                   <span className="text-[10px] text-red-600">THREAT OBJECT</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   <div>
                     <label className="text-[10px] text-slate-500 block">X (km)</label>
                     <input
                       type="number"
                       value={r2.x}
                       onChange={e => { setLiveSync(false); setR2({ ...r2, x: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -359,7 +359,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       type="number"
                       value={r2.y}
                       onChange={e => { setLiveSync(false); setR2({ ...r2, y: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -368,11 +368,11 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       type="number"
                       value={r2.z}
                       onChange={e => { setLiveSync(false); setR2({ ...r2, z: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-1">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-1">
                   <div>
                     <label className="text-[10px] text-slate-500 block">Vx (km/s)</label>
                     <input
@@ -380,7 +380,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       step="0.1"
                       value={v2.x}
                       onChange={e => { setLiveSync(false); setV2({ ...v2, x: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -390,7 +390,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       step="0.1"
                       value={v2.y}
                       onChange={e => { setLiveSync(false); setV2({ ...v2, y: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                   <div>
@@ -400,7 +400,7 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
                       step="0.1"
                       value={v2.z}
                       onChange={e => { setLiveSync(false); setV2({ ...v2, z: parseFloat(e.target.value) || 0 }); }}
-                      className="w-full p-1.5 bg-white border border-slate-200 rounded text-slate-900"
+                      className="w-full p-1.5 text-[11px] sm:text-xs bg-white border border-slate-200 rounded text-slate-900"
                     />
                   </div>
                 </div>
@@ -409,8 +409,8 @@ export const FormulaLaboratory: React.FC<FormulaLaboratoryProps> = ({ systemStat
             </div>
 
             {/* Arithmetic Step-by-Step Breakdown */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3 font-mono text-xs">
-              <div className="font-bold text-slate-800 uppercase tracking-wider text-[11px] flex items-center justify-between">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 flex flex-col gap-3 font-mono text-xs">
+              <div className="font-bold text-slate-800 uppercase tracking-wider text-[11px] flex flex-wrap items-center justify-between gap-2">
                 <span>Step-by-Step Numerical Evaluation</span>
                 <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]">
                   Real-Time Evaluated

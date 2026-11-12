@@ -87,7 +87,7 @@ export const EvaluatorDemoModal: React.FC<EvaluatorDemoModalProps> = ({
             <span className="font-bold block mb-1">Conjunction Event Detected:</span>
             Hazardous debris <strong>Cosmos-2251 Fragment #33A</strong> on intersecting orbital trajectory.
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-3 rounded-xl border border-slate-200">
             <div>Predicted d_CPA: <strong className="text-red-600">3.80 km</strong></div>
             <div>Time to CPA: <strong>2396 s</strong></div>
             <div>Closing Speed: <strong>2.89 km/s</strong></div>
@@ -242,36 +242,36 @@ export const EvaluatorDemoModal: React.FC<EvaluatorDemoModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl max-w-xl w-full max-h-[90dvh] shadow-2xl overflow-hidden flex flex-col">
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-xs font-mono font-bold text-blue-600 uppercase tracking-wider">
+            <div className="min-w-0">
+              <div className="text-[10px] sm:text-xs font-mono font-bold text-blue-600 uppercase tracking-wider truncate">
                 5-MINUTE EVALUATOR WALKTHROUGH
               </div>
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
                 {currentStageData.title}
               </h3>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Stage Progress Bar */}
-        <div className="px-6 pt-4 pb-1">
-          <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-1.5">
+        <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-1 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] sm:text-[11px] font-mono text-slate-400 mb-1.5">
             <span>STAGE {currentStage} OF {totalStages}</span>
-            <span>{currentStageData.subtitle}</span>
+            <span className="truncate max-w-full">{currentStageData.subtitle}</span>
           </div>
           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -282,23 +282,23 @@ export const EvaluatorDemoModal: React.FC<EvaluatorDemoModalProps> = ({
         </div>
 
         {/* Modal Body Content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0">
           {currentStageData.content}
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center justify-between sm:justify-start gap-2">
             <button
               onClick={handlePrev}
               disabled={currentStage === 1}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+              className="flex-1 sm:flex-initial justify-center px-3 py-2 sm:py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
             >
               <ChevronLeft className="w-3.5 h-3.5" /> Previous
             </button>
             <button
               onClick={handleReset}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-medium hover:bg-white transition-all"
+              className="flex-1 sm:flex-initial justify-center px-3 py-2 sm:py-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-medium hover:bg-white transition-all"
             >
               Reset Tour
             </button>
@@ -306,7 +306,7 @@ export const EvaluatorDemoModal: React.FC<EvaluatorDemoModalProps> = ({
 
           <button
             onClick={handleNext}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all"
+            className="w-full sm:w-auto justify-center bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 sm:py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all"
           >
             {currentStageData.actionLabel}
           </button>

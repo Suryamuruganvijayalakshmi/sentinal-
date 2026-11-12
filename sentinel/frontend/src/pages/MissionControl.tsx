@@ -382,12 +382,12 @@ export const MissionControl: React.FC<MissionControlProps> = ({
   const trackedRows = buildTrackedCatalogueRows();
 
   return (
-    <div className="w-full h-full overflow-y-auto p-4 md:p-6 lg:p-7 flex flex-col gap-5 bg-[#f4f6fc] text-slate-800 font-sans">
+    <div className="w-full h-full overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-7 flex flex-col gap-4 sm:gap-5 bg-[#f4f6fc] text-slate-800 font-sans">
       
       {/* ── MISSION CONTROL HEADER & ACTION CONTROLS ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             MISSION CONTROL • CONJUNCTION ASSESSMENT
           </h1>
           <p className="text-xs text-slate-500 mt-0.5 font-medium">
@@ -395,11 +395,11 @@ export const MissionControl: React.FC<MissionControlProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 relative">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 relative">
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all"
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>MISSION DATA</span>
@@ -407,7 +407,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
             </button>
 
             {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs">
+              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs">
                 <button
                   onClick={() => {
                     setShowExportMenu(false);
@@ -435,7 +435,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
           <button
             onClick={handleAutonomousAvoidance}
             disabled={isAutoExecuting}
-            className="flex items-center gap-2 bg-[#4f46e5] hover:bg-[#4338ca] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-98 disabled:opacity-50"
+            className="flex items-center gap-2 bg-[#4f46e5] hover:bg-[#4338ca] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-98 disabled:opacity-50"
           >
             <Rocket className="w-4 h-4 text-white" />
             <span>{isAutoExecuting ? 'EXECUTING BURN...' : 'EXECUTE AVOIDANCE'}</span>
@@ -444,23 +444,23 @@ export const MissionControl: React.FC<MissionControlProps> = ({
       </div>
 
       {/* ── MASTER 2-COLUMN COMMAND BRIDGE: TELEMETRY (LEFT 7 COLS) | 3D GLOBE (RIGHT 5 COLS) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-stretch flex-1 min-h-0">
         
         {/* ── LEFT COLUMN (7 COLS) ── */}
-        <div className="lg:col-span-7 flex flex-col gap-5">
+        <div className="lg:col-span-7 flex flex-col gap-4 sm:gap-5">
           
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 items-stretch">
             
             {/* ── CARD 1: CONJUNCTION THREAT LEVEL ── */}
-            <div className="md:col-span-6 bg-white rounded-[24px] p-5 shadow-xs border border-slate-100 flex flex-col justify-between gap-4">
+            <div className="md:col-span-6 bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between gap-4">
               <div>
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
                       CONJUNCTION THREAT LEVEL
                     </span>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className={`text-2xl font-black tracking-tight font-mono ${
+                    <div className="flex flex-wrap items-baseline gap-2 mt-1">
+                      <span className={`text-xl sm:text-2xl font-black tracking-tight font-mono ${
                         isThreatActive ? 'text-rose-600' : isVerified ? 'text-emerald-600' : 'text-slate-900'
                       }`}>
                         {predictedCpaKm < 25 ? `${predictedCpaKm.toFixed(2)} km` : 'SAFE (>25km)'}
@@ -476,7 +476,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                     </div>
                   </div>
 
-                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0 ${
+                  <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0 ${
                     isThreatActive ? 'bg-rose-500 shadow-rose-500/20' : 'bg-[#6366f1] shadow-indigo-500/20'
                   }`}>
                     <ShieldAlert className="w-5 h-5 text-white" />
@@ -486,46 +486,46 @@ export const MissionControl: React.FC<MissionControlProps> = ({
 
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="w-24 text-slate-500 truncate" title="Radial Separation ΔR">Radial ΔR</span>
-                  <span className="w-16 font-mono font-bold text-slate-800">{deltaR.toFixed(2)} km</span>
-                  <div className="flex-1 mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <span className="w-20 sm:w-24 text-slate-500 truncate" title="Radial Separation ΔR">Radial ΔR</span>
+                  <span className="w-14 sm:w-16 font-mono font-bold text-slate-800">{deltaR.toFixed(2)} km</span>
+                  <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
                     <div className="h-full bg-[#3b82f6] rounded-full" style={{ width: `${Math.min(100, Math.round((deltaR / 10) * 100))}%` }} />
                   </div>
-                  <span className="w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaR / 10) * 100))}%</span>
+                  <span className="w-8 sm:w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaR / 10) * 100))}%</span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="w-24 text-slate-500 truncate" title="In-Track Separation ΔT">In-Track ΔT</span>
-                  <span className="w-16 font-mono font-bold text-slate-800">{deltaT.toFixed(2)} km</span>
-                  <div className="flex-1 mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <span className="w-20 sm:w-24 text-slate-500 truncate" title="In-Track Separation ΔT">In-Track ΔT</span>
+                  <span className="w-14 sm:w-16 font-mono font-bold text-slate-800">{deltaT.toFixed(2)} km</span>
+                  <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
                     <div className="h-full bg-[#6366f1] rounded-full" style={{ width: `${Math.min(100, Math.round((deltaT / 25) * 100))}%` }} />
                   </div>
-                  <span className="w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaT / 25) * 100))}%</span>
+                  <span className="w-8 sm:w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaT / 25) * 100))}%</span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="w-24 text-slate-500 truncate" title="Cross-Track Separation ΔW">Cross-Track ΔW</span>
-                  <span className="w-16 font-mono font-bold text-slate-800">{deltaW.toFixed(2)} km</span>
-                  <div className="flex-1 mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <span className="w-20 sm:w-24 text-slate-500 truncate" title="Cross-Track Separation ΔW">Cross-Track ΔW</span>
+                  <span className="w-14 sm:w-16 font-mono font-bold text-slate-800">{deltaW.toFixed(2)} km</span>
+                  <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
                     <div className="h-full bg-[#f59e0b] rounded-full" style={{ width: `${Math.min(100, Math.round((deltaW / 25) * 100))}%` }} />
                   </div>
-                  <span className="w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaW / 25) * 100))}%</span>
+                  <span className="w-8 sm:w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaW / 25) * 100))}%</span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="w-24 text-slate-500 truncate" title="Screening Penetration">Violation Depth</span>
-                  <span className="w-16 font-mono font-bold text-rose-600">{violationDepthKm.toFixed(1)} km</span>
-                  <div className="flex-1 mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <span className="w-20 sm:w-24 text-slate-500 truncate" title="Screening Penetration">Violation Depth</span>
+                  <span className="w-14 sm:w-16 font-mono font-bold text-rose-600">{violationDepthKm.toFixed(1)} km</span>
+                  <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
                     <div className="h-full bg-[#f43f5e] rounded-full" style={{ width: `${violationPct}%` }} />
                   </div>
-                  <span className="w-9 text-right text-rose-500 font-mono text-[11px] font-bold">{violationPct}%</span>
+                  <span className="w-8 sm:w-9 text-right text-rose-500 font-mono text-[11px] font-bold">{violationPct}%</span>
                 </div>
               </div>
             </div>
 
             {/* ── CARD 2: AVOIDANCE BURN PROFILE (ΔV) — LIVE RK4 CANDIDATES ── */}
-            <div className="md:col-span-6 bg-white rounded-[24px] p-5 shadow-xs border border-slate-100 flex flex-col justify-between">
-              <div className="w-full flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div className="md:col-span-6 bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between">
+              <div className="w-full flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2.5">
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
                   AVOIDANCE BURN PROFILE (ΔV)
                 </h2>
@@ -559,8 +559,8 @@ export const MissionControl: React.FC<MissionControlProps> = ({
 
                 return (
                   <>
-                    <div className="flex items-center justify-between gap-3 my-auto py-2">
-                      <svg className="w-36 h-36 shrink-0" viewBox="0 0 180 180">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 my-auto py-2">
+                      <svg className="w-32 h-32 sm:w-36 sm:h-36 shrink-0" viewBox="0 0 180 180">
                         {topFour.map((cand, idx) => {
                           const r = radii[idx];
                           const circ = 2 * Math.PI * r;
@@ -592,9 +592,9 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                         </text>
                       </svg>
 
-                      <div className="flex-1 flex flex-col gap-1.5 text-[10px] font-mono">
-                        {topFour.map((cand, idx) => (
-                          <div key={cand.id} className="flex items-center justify-between bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                      <div className="w-full sm:flex-1 flex flex-col gap-1.5 text-[10px] font-mono">
+                        {topFour.map((cand) => (
+                          <div key={cand.id} className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg border border-slate-100">
                             <span className="font-bold truncate text-slate-700" title={cand.name}>
                               {cand.direction.slice(0, 5)} {cand.delta_v_ms}m/s
                             </span>
@@ -606,7 +606,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                       </div>
                     </div>
 
-                    <div className="w-full flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
+                    <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
                       <span>
                         BURN: {activeBurn ? `${activeBurn.delta_v_ms.toFixed(1)} m/s ${activeBurn.direction}` : 'STANDBY'}
                       </span>
@@ -622,7 +622,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                     <span className="text-xs font-mono font-bold text-emerald-600">NO BURN REQUIRED</span>
                     <span className="text-[11px] text-slate-500">All tracked objects clear the {screening_distance_km.toFixed(1)} km threshold.</span>
                   </div>
-                  <div className="w-full flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
+                  <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
                     <span>BURN: 0.0 m/s IDLE</span>
                     <span className="font-bold text-emerald-600">CLEARANCE: SAFE</span>
                   </div>
@@ -632,8 +632,8 @@ export const MissionControl: React.FC<MissionControlProps> = ({
           </div>
 
           {/* ── CARD 3: ORBITAL CONJUNCTION CATALOGUE & REAL-TIME SCREENING ── */}
-          <div className="bg-white rounded-[24px] p-5 shadow-xs border border-slate-100 flex flex-col justify-between gap-3.5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div className="bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between gap-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2.5">
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
                 ORBITAL CONJUNCTION CATALOGUE & REAL-TIME SCREENING
               </h2>
@@ -642,7 +642,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-12 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 font-mono">
+            <div className="hidden md:grid grid-cols-12 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 font-mono">
               <div className="col-span-2">NORAD ID</div>
               <div className="col-span-4">OBJECT & CLASSIFICATION</div>
               <div className="col-span-3">SAFETY STATUS</div>
@@ -652,63 +652,115 @@ export const MissionControl: React.FC<MissionControlProps> = ({
 
             <div className="flex flex-col gap-2">
               {trackedRows.map((row) => (
-                <div
-                  key={row.id}
-                  className="grid grid-cols-12 items-center bg-[#f8fafc] hover:bg-indigo-50/40 rounded-xl px-3 py-2 transition-colors text-xs border border-slate-100/80"
-                >
-                  <div className="col-span-2 font-mono font-bold text-slate-700">
-                    {row.norad}
-                  </div>
-                  <div className="col-span-4 font-medium text-slate-800 truncate pr-2" title={row.desc}>
-                    {row.name}
-                  </div>
-                  <div className="col-span-3 flex items-center gap-2 pr-2">
-                    <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${row.statusColor}`}
-                        style={{ width: `${row.statusPct}%` }}
-                      />
+                <React.Fragment key={row.id}>
+                  {/* Desktop Row */}
+                  <div className="hidden md:grid grid-cols-12 items-center bg-[#f8fafc] hover:bg-indigo-50/40 rounded-xl px-3 py-2 transition-colors text-xs border border-slate-100/80">
+                    <div className="col-span-2 font-mono font-bold text-slate-700">
+                      {row.norad}
                     </div>
-                    <span className="text-[10px] font-mono text-slate-500 font-semibold">{row.statusLabel}</span>
+                    <div className="col-span-4 font-medium text-slate-800 truncate pr-2" title={row.desc}>
+                      {row.name}
+                    </div>
+                    <div className="col-span-3 flex items-center gap-2 pr-2">
+                      <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${row.statusColor}`}
+                          style={{ width: `${row.statusPct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500 font-semibold">{row.statusLabel}</span>
+                    </div>
+                    <div className="col-span-1 text-right font-mono font-bold text-slate-700 text-[11px] whitespace-nowrap">
+                      {row.distanceLabel}
+                    </div>
+                    <div className="col-span-2 flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => {
+                          onSelectObject(row.id);
+                          onJumpToCPA();
+                        }}
+                        title="Track object & align camera"
+                        className="w-6.5 h-6.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={onOpenManeuverLab}
+                        title="Open Maneuver Planning Lab"
+                        className="w-6.5 h-6.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition-colors"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={handleAutonomousAvoidance}
+                        title="Execute Autonomous Avoidance Action"
+                        className="w-6.5 h-6.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors"
+                      >
+                        <Zap className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="col-span-1 text-right font-mono font-bold text-slate-700 text-[11px] whitespace-nowrap">
-                    {row.distanceLabel}
+
+                  {/* Mobile Card Row */}
+                  <div className="flex md:hidden flex-col gap-2 bg-[#f8fafc] rounded-xl px-3 py-2.5 text-xs border border-slate-100/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono font-bold text-[11px] text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded shrink-0">
+                          {row.norad}
+                        </span>
+                        <span className="font-semibold text-slate-800 truncate">{row.name}</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-700 text-[11px] shrink-0">
+                        {row.distanceLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${row.statusColor}`}
+                            style={{ width: `${row.statusPct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-500 font-semibold shrink-0">{row.statusLabel}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => {
+                            onSelectObject(row.id);
+                            onJumpToCPA();
+                          }}
+                          title="Track object & align camera"
+                          className="w-8 h-8 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={onOpenManeuverLab}
+                          title="Open Maneuver Planning Lab"
+                          className="w-8 h-8 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition-colors"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={handleAutonomousAvoidance}
+                          title="Execute Autonomous Avoidance Action"
+                          className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="col-span-2 flex items-center justify-end gap-1.5">
-                    <button
-                      onClick={() => {
-                        onSelectObject(row.id);
-                        onJumpToCPA();
-                      }}
-                      title="Track object & align camera"
-                      className="w-6.5 h-6.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors"
-                    >
-                      <Eye className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={onOpenManeuverLab}
-                      title="Open Maneuver Planning Lab"
-                      className="w-6.5 h-6.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition-colors"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={handleAutonomousAvoidance}
-                      title="Execute Autonomous Avoidance Action"
-                      className="w-6.5 h-6.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors"
-                    >
-                      <Zap className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
+                </React.Fragment>
               ))}
             </div>
           </div>
 
           {/* ── CARD 4: SPACECRAFT HYDRAZINE PROPELLANT PRESSURE VESSEL ── */}
-          <div className="bg-white rounded-[24px] p-5 shadow-xs border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-5">
+          <div className="bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-5">
             {/* Spacecraft Titanium Propellant Tank Illustration */}
-            <div className="relative w-44 h-36 flex items-center justify-center shrink-0">
+            <div className="relative w-36 h-28 sm:w-44 sm:h-36 flex items-center justify-center shrink-0">
               <svg className="w-full h-full" viewBox="0 0 200 160">
                 {/* Top Helium Pressurization Valve Assembly */}
                 <rect x="86" y="10" width="28" height="14" rx="3" fill="#e2e8f0" stroke="#64748b" strokeWidth="2" />
@@ -752,7 +804,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
             </div>
 
             <div className="flex-1 flex flex-col justify-between gap-2.5 w-full">
-              <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
+              <div className="border-b border-slate-100 pb-2 flex flex-wrap items-center justify-between gap-1.5">
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
                   DELTA-V PROPELLANT RESERVE
                 </h3>
@@ -760,7 +812,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                   {Math.max(1, Math.floor(fuelRemaining / 35))} BURNS REMAINING
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
                   <span className="text-slate-400 text-[10px] block font-mono">PROPELLANT REMAINING</span>
                   <span className="font-mono font-bold text-slate-900 text-sm">{fuelRemaining.toFixed(1)} / {fuelCapacity} kg</span>
@@ -792,9 +844,9 @@ export const MissionControl: React.FC<MissionControlProps> = ({
 
         {/* ── RIGHT COLUMN (5 COLS): FULL-HEIGHT 3D ORBITAL ENVIRONMENT & GLOBE ── */}
         <div className="lg:col-span-5 flex flex-col">
-          <div className="bg-white rounded-[28px] p-5 shadow-xs border border-slate-100 flex flex-col justify-between h-full min-h-[640px] lg:min-h-[760px] relative">
+          <div className="bg-white rounded-[24px] sm:rounded-[28px] p-3.5 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between h-full lg:min-h-[760px] relative">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div>
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center gap-2">
                   <Globe className="w-3.5 h-3.5 text-indigo-600" />
@@ -805,7 +857,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* Live Sim Clock Quick Controls */}
                 <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                   <button
@@ -871,7 +923,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
               </div>
             </div>
 
-            <div className="w-full my-3 h-[540px] lg:h-[610px] rounded-2xl overflow-hidden bg-[#070b14] border border-slate-800/80 relative flex items-center justify-center shadow-inner">
+            <div className="w-full my-3 h-[380px] sm:h-[500px] lg:h-[610px] rounded-2xl overflow-hidden bg-[#070b14] border border-slate-800/80 relative flex items-center justify-center shadow-inner">
               {viewMode3D === 'globe' ? (
                 <>
                   <OriginkitGlobe
@@ -893,39 +945,39 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                     style={{ width: '100%', height: '100%' }}
                   />
 
-                  <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 pointer-events-none">
-                    <div className="bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/80 shadow-md flex items-center gap-2 text-white">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                      <div>
-                        <div className="font-mono text-[10px] font-bold text-emerald-400">SAT-01 (PROTECTED ASSET)</div>
-                        <div className="font-mono text-[10px] text-slate-300">
-                          {sat01Coords.lat}°N, {sat01Coords.lng}°E • {(sentinel?.altitude ?? 600).toFixed(1)} km ALT • {satSpeedKms.toFixed(2)} km/s
+                  <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-auto z-10 flex flex-col gap-1.5 pointer-events-none max-w-[calc(100%-1.25rem)]">
+                    <div className="bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-700/80 shadow-md flex items-center gap-2 text-white w-fit max-w-full">
+                      <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-mono text-[9px] sm:text-[10px] font-bold text-emerald-400 truncate">SAT-01 (PROTECTED ASSET)</div>
+                        <div className="font-mono text-[9px] sm:text-[10px] text-slate-300 truncate">
+                          {sat01Coords.lat}°N, {sat01Coords.lng}°E • {(sentinel?.altitude ?? 600).toFixed(1)} km • {satSpeedKms.toFixed(2)} km/s
                         </div>
                       </div>
                     </div>
 
                     {target && (
-                      <div className="bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/80 shadow-md flex items-center gap-2 text-white">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
-                        <div>
-                          <div className="font-mono text-[10px] font-bold text-rose-400">
+                      <div className="bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-700/80 shadow-md flex items-center gap-2 text-white w-fit max-w-full">
+                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-rose-500 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-mono text-[9px] sm:text-[10px] font-bold text-rose-400 truncate">
                             {target.name} (THREAT)
                           </div>
-                          <div className="font-mono text-[10px] text-slate-300">
-                            {targetCoords.lat}°N, {targetCoords.lng}°E • v_rel {closingSpeedKms.toFixed(2)} km/s • CPA in {Math.max(0, predictedCpaTimeS).toFixed(0)}s
+                          <div className="font-mono text-[9px] sm:text-[10px] text-slate-300 truncate">
+                            {targetCoords.lat}°N, {targetCoords.lng}°E • v_rel {closingSpeedKms.toFixed(2)} km/s • CPA {Math.max(0, predictedCpaTimeS).toFixed(0)}s
                           </div>
                         </div>
                       </div>
                     )}
 
-                    <div className="bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-800 shadow-sm flex items-center gap-2 text-slate-300 text-[9px] font-mono">
-                      <span className={`w-1.5 h-1.5 rounded-full ${clock?.is_running ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                      <span>T+{simTime.toFixed(1)}s • DUTY: {(sentinel?.mission_phase || sentinel?.status || 'ORBITAL_PATROL').replace(/_/g, ' ')}</span>
+                    <div className="bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-800 shadow-sm flex items-center gap-2 text-slate-300 text-[9px] font-mono w-fit max-w-full">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${clock?.is_running ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                      <span className="truncate">T+{simTime.toFixed(1)}s • DUTY: {(sentinel?.mission_phase || sentinel?.status || 'ORBITAL_PATROL').replace(/_/g, ' ')}</span>
                     </div>
                   </div>
 
-                  <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2">
-                    <span className="bg-slate-900/90 backdrop-blur-md text-[9px] font-mono text-slate-400 px-2.5 py-1.5 rounded-lg border border-slate-700/80 shadow-sm">
+                  <div className="absolute bottom-2.5 sm:bottom-3 right-2.5 sm:right-3 z-10 flex items-center gap-2">
+                    <span className="hidden sm:inline-block bg-slate-900/90 backdrop-blur-md text-[9px] font-mono text-slate-400 px-2.5 py-1.5 rounded-lg border border-slate-700/80 shadow-sm">
                       Drag to rotate • Hover to inspect countries
                     </span>
                     <button
@@ -933,7 +985,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                         setViewMode3D('orbits');
                         onJumpToCPA();
                       }}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-md flex items-center gap-1.5 transition-all"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-md flex items-center gap-1.5 transition-all"
                     >
                       <Eye className="w-3.5 h-3.5 text-white" />
                       <span>Inspect CPA</span>
@@ -961,8 +1013,8 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                     hideControls={true}
                   />
 
-                  <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
-                    <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-xl shadow-xs border border-slate-700 w-fit">
+                  <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-auto z-10 flex flex-col gap-1.5 max-w-[calc(100%-1.25rem)]">
+                    <div className="flex flex-wrap items-center gap-1 bg-slate-900/90 backdrop-blur-md px-2 sm:px-2.5 py-1 rounded-xl shadow-xs border border-slate-700 w-fit max-w-full">
                       <button
                         onClick={() => onChangeCameraMode('GLOBAL')}
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${cameraMode === 'GLOBAL' ? 'bg-[#4f46e5] text-white' : 'text-slate-300'}`}
@@ -982,20 +1034,20 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                         CPA
                       </button>
                     </div>
-                    <div className="bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/80 text-[9px] font-mono text-sky-300 flex items-center gap-1.5 w-fit">
-                      <span className={`w-1.5 h-1.5 rounded-full ${
+                    <div className="bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/80 text-[9px] font-mono text-sky-300 flex items-center gap-1.5 w-fit max-w-full">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                         sentinel?.status === 'MANEUVER' ? 'bg-blue-400 animate-ping' :
                         sentinel?.status === 'INSPECTING' ? 'bg-amber-400 animate-pulse' :
                         'bg-emerald-400 animate-pulse'
                       }`} />
-                      <span>WORKFLOW: {(sentinel?.mission_phase || sentinel?.status || 'ORBITAL_PATROL').replace(/_/g, ' ')}</span>
+                      <span className="truncate">WORKFLOW: {(sentinel?.mission_phase || sentinel?.status || 'ORBITAL_PATROL').replace(/_/g, ' ')}</span>
                     </div>
                   </div>
 
-                  <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5">
+                  <div className="absolute bottom-2.5 sm:bottom-3 right-2.5 sm:right-3 z-10 flex items-center gap-1.5">
                     <button
                       onClick={onJumpToCPA}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-md flex items-center gap-1.5"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-md flex items-center gap-1.5"
                     >
                       <Eye className="w-3.5 h-3.5 text-white" />
                       <span>Inspect CPA</span>
@@ -1005,9 +1057,9 @@ export const MissionControl: React.FC<MissionControlProps> = ({
               )}
             </div>
 
-            <div className="w-full flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
+            <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 <span>EPHEMERIS: PROPAGATING TWO-BODY RK4 ORBIT</span>
               </span>
               <span>SCREENING BOUNDARY: {screening_distance_km.toFixed(1)} km</span>

@@ -145,102 +145,104 @@ export const ManeuverLab: React.FC<ManeuverLabProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-slate-50 flex">
+    <div className="relative w-full h-full overflow-y-auto lg:overflow-hidden bg-slate-50 flex flex-col lg:flex-row">
       {/* ── LEFT 3D TRAJECTORY PREVIEW VIEWPORT (~58% of screen) ── */}
-      <div className="relative flex-1 min-w-0 h-full">
-        <OrbitalCanvas
-          objects={objects}
-          sentinel={sentinel}
-          target={target}
-          risks={risks}
-          selectedObjectId={sentinel?.id || null}
-          onSelectObject={() => {}}
-          cameraMode={cameraMode}
-          onChangeCameraMode={setCameraMode}
-          onResetCamera={() => setCameraMode('PROXIMITY')}
-          predictedWaypoints={
-            plannerMode === 'CUSTOM'
-              ? customPreview?.trajectory_waypoints || activeCandidate?.trajectory_waypoints
-              : activeCandidate?.trajectory_waypoints
-          }
-          interceptWaypoints={executed_maneuver?.trajectory_waypoints}
-          maneuverVector={activeBurnVector}
-          simTime={systemState.clock?.sim_time ?? 0}
-          isRunning={systemState.clock?.is_running}
-          timeScale={systemState.clock?.time_scale}
-          theme={theme}
-          hideControls={true}
-        />
+      <div className="w-full lg:flex-1 min-w-0 lg:h-full flex flex-col shrink-0 lg:relative">
+        <div className="relative w-full h-[300px] sm:h-[380px] lg:h-full">
+          <OrbitalCanvas
+            objects={objects}
+            sentinel={sentinel}
+            target={target}
+            risks={risks}
+            selectedObjectId={sentinel?.id || null}
+            onSelectObject={() => {}}
+            cameraMode={cameraMode}
+            onChangeCameraMode={setCameraMode}
+            onResetCamera={() => setCameraMode('PROXIMITY')}
+            predictedWaypoints={
+              plannerMode === 'CUSTOM'
+                ? customPreview?.trajectory_waypoints || activeCandidate?.trajectory_waypoints
+                : activeCandidate?.trajectory_waypoints
+            }
+            interceptWaypoints={executed_maneuver?.trajectory_waypoints}
+            maneuverVector={activeBurnVector}
+            simTime={systemState.clock?.sim_time ?? 0}
+            isRunning={systemState.clock?.is_running}
+            timeScale={systemState.clock?.time_scale}
+            theme={theme}
+            hideControls={true}
+          />
 
-        {/* Top-Left: Trajectory Legend Pill */}
-        <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm flex items-center gap-3 text-xs font-mono">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-1 bg-red-500 rounded" />
-            <span className="text-slate-700 font-sans font-medium">Pre-Burn Trajectory</span>
+          {/* Top-Left: Trajectory Legend Pill */}
+          <div className="hidden sm:flex lg:flex absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl px-3.5 py-2 shadow-sm items-center gap-3 text-xs font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-1 bg-red-500 rounded" />
+              <span className="text-slate-700 font-sans font-medium">Pre-Burn</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-1 bg-emerald-500 rounded" />
+              <span className="text-slate-700 font-sans font-medium">Candidate</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+              <span className="text-slate-700 font-sans font-medium">Δv Vector</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-1 bg-emerald-500 rounded" />
-            <span className="text-slate-700 font-sans font-medium">Candidate Trajectory</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-            <span className="text-slate-700 font-sans font-medium">Δv Vector Arrow</span>
+
+          {/* Top-Right: Camera Mode Selector */}
+          <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-auto right-2.5 sm:right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1 sm:p-1.5 shadow-sm flex flex-wrap items-center gap-1 w-fit max-w-[calc(100%-1.25rem)]">
+            <button
+              onClick={() => setCameraMode('PROXIMITY')}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
+                cameraMode === 'PROXIMITY' || cameraMode === 'COLLISION' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Encounter View
+            </button>
+            <button
+              onClick={() => setCameraMode('GLOBAL')}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
+                cameraMode === 'GLOBAL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Earth View
+            </button>
+            <button
+              onClick={() => setCameraMode('FOLLOW_SENTINEL')}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
+                cameraMode === 'FOLLOW_SENTINEL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              SAT-01
+            </button>
+            <button
+              onClick={() => setCameraMode('FREE')}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all ${
+                cameraMode === 'FREE' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Free
+            </button>
           </div>
         </div>
 
-        {/* Top-Right: Camera Mode Selector */}
-        <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1.5 shadow-sm flex items-center gap-1">
-          <button
-            onClick={() => setCameraMode('PROXIMITY')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-              cameraMode === 'PROXIMITY' || cameraMode === 'COLLISION' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            Encounter View
-          </button>
-          <button
-            onClick={() => setCameraMode('GLOBAL')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-              cameraMode === 'GLOBAL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            Earth View
-          </button>
-          <button
-            onClick={() => setCameraMode('FOLLOW_SENTINEL')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-              cameraMode === 'FOLLOW_SENTINEL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            SAT-01
-          </button>
-          <button
-            onClick={() => setCameraMode('FREE')}
-            className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-              cameraMode === 'FREE' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            Free
-          </button>
-        </div>
-
-        {/* Bottom Banner: Candidate Preview Summary */}
-        <div className="absolute bottom-4 left-4 right-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-3.5 shadow-md flex items-center justify-between">
-          <div className="flex items-center gap-4 text-xs font-mono">
+        {/* Bottom Banner: Candidate Preview Summary (inline card below canvas on < lg, floating overlay on lg+) */}
+        <div className="lg:absolute lg:bottom-4 lg:left-4 lg:right-4 z-10 m-3 lg:m-0 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm lg:shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-3 sm:gap-4 text-xs font-mono">
             <div>
               <span className="text-[10px] text-slate-500 block font-sans">SELECTED MANEUVER</span>
               <span className="font-bold text-slate-900">
                 {plannerMode === 'CUSTOM' ? `Custom Burn (Δv=${customDvMag.toFixed(1)} m/s)` : activeCandidate?.name}
               </span>
             </div>
-            <div className="border-l border-slate-200 pl-4">
+            <div className="sm:border-l sm:border-slate-200 sm:pl-4">
               <span className="text-[10px] text-slate-500 block font-sans">DELTA-V IMPULSE</span>
               <span className="font-bold text-blue-600">
                 {plannerMode === 'CUSTOM' ? customDvMag.toFixed(1) : activeCandidate?.delta_v_ms} m/s
               </span>
             </div>
-            <div className="border-l border-slate-200 pl-4">
-              <span className="text-[10px] text-slate-500 block font-sans">RESULTING MIN SEPARATION</span>
+            <div className="sm:border-l sm:border-slate-200 sm:pl-4">
+              <span className="text-[10px] text-slate-500 block font-sans">RESULTING MIN SEP.</span>
               <span className={`font-bold ${
                 (plannerMode === 'CUSTOM' ? (customPreview?.passed ?? false) : activeCandidate?.passed) ? 'text-emerald-600' : 'text-red-600'
               }`}>
@@ -249,7 +251,7 @@ export const ManeuverLab: React.FC<ManeuverLabProps> = ({
                   : `${activeCandidate?.resulting_d_cpa_km} km`}
               </span>
             </div>
-            <div className="border-l border-slate-200 pl-4">
+            <div className="sm:border-l sm:border-slate-200 sm:pl-4">
               <span className="text-[10px] text-slate-500 block font-sans">PROPELLANT COST</span>
               <span className="font-bold text-slate-700">
                 {plannerMode === 'CUSTOM' ? (customPreview?.propellant_kg ?? customFuelKg).toFixed(2) : activeCandidate?.propellant_kg} kg
@@ -257,11 +259,11 @@ export const ManeuverLab: React.FC<ManeuverLabProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               disabled={isExecuting || safety_status === 'VERIFIED'}
               onClick={plannerMode === 'CUSTOM' ? handleExecuteCustom : handleExecutePreset}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-2 transition-all ${
+              className={`w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-2 transition-all ${
                 safety_status === 'VERIFIED'
                   ? 'bg-emerald-600 text-white cursor-default'
                   : 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
@@ -284,10 +286,10 @@ export const ManeuverLab: React.FC<ManeuverLabProps> = ({
       </div>
 
       {/* ── RIGHT MANEUVER COMPARISON PANEL (~42% of screen) ── */}
-      <aside className="w-[460px] lg:w-[500px] h-full bg-white border-l border-slate-200 flex flex-col p-4 gap-3.5 overflow-y-auto shadow-xs shrink-0 z-10">
+      <aside className="w-full lg:w-[440px] xl:w-[500px] h-auto lg:h-full bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col p-3.5 sm:p-4 gap-3.5 lg:overflow-y-auto shadow-xs shrink-0 z-10">
         
         {/* Panel Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
           <div>
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Zap className="w-4 h-4 text-blue-600" />
@@ -328,12 +330,12 @@ export const ManeuverLab: React.FC<ManeuverLabProps> = ({
             <span className="font-semibold text-slate-700">Safety Screening Threshold</span>
             <span className="font-mono font-bold text-blue-600">{customScreening.toFixed(1)} km</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="grid grid-cols-3 sm:flex items-center gap-1.5">
             {[10, 15, 20, 25, 35, 50].map(dist => (
               <button
                 key={dist}
                 onClick={() => handleScreeningChange(dist)}
-                className={`flex-1 py-1 text-xs rounded-lg font-medium transition-all ${
+                className={`sm:flex-1 py-1.5 sm:py-1 text-xs rounded-lg font-medium transition-all ${
                   customScreening === dist
                     ? 'bg-blue-600 text-white font-bold shadow-2xs'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -350,11 +352,11 @@ export const ManeuverLab: React.FC<ManeuverLabProps> = ({
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
               <span>Candidate Maneuver Matrix</span>
-              <span className="text-[11px] text-slate-500 font-normal">Click to preview in 3D</span>
+              <span className="text-[11px] text-slate-500 font-normal">Tap row to preview in 3D</span>
             </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-2xs">
+              <table className="w-full min-w-[440px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-100 text-slate-600 font-mono text-[10px] uppercase border-b border-slate-200">
                     <th className="py-2 px-3">Candidate</th>
