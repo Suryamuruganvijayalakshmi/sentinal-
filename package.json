@@ -1,0 +1,13 @@
+{
+  "name": "sentinel-orbital-safety",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "install:frontend": "npm --prefix sentinel/frontend ci --include=dev",
+    "build": "npm --prefix sentinel/frontend run build",
+    "lint": "npm --prefix sentinel/frontend run lint"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RawOpticalDatasetRecord",
+  "description": "Schema for the supplied Optical Space Debris Detection dataset record",
+  "type": "object",
+  "required": [
+    "ImageID",
+    "bboxes"
+  ],
+  "properties": {
+    "ImageID": {
+      "type": "integer",
+      "description": "Zero-indexed observation frame ID corresponding to sensor imagery (e.g. train/{ImageID}.jpg)"
+    },
+    "bboxes": {
+      "type": "array",
+      "description": "Array of detected bounding boxes in optical frame coordinates [ymin, ymax, xmin, xmax]",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 5
+      }
+    }
+  }
+}

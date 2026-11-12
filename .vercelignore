@@ -1,0 +1,15 @@
+.pytest_cache/
+**/__pycache__/
+**/*.pyc
+**/*.log
+.git/
+.venv/
+venv/
+sentinel/frontend/node_modules/
+sentinel/frontend/dist/
+sentinel/data/raw/
+sentinel/data/processed/debris_catalog.csv
+sentinel/tests/
+sentinel/sentinel.db
+debris-detection/
+

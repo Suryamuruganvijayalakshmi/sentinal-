@@ -1,0 +1,206 @@
+{
+  "train.csv": {
+    "file_name": "train.csv",
+    "file_size_mb": 1.7,
+    "total_rows": 20000,
+    "columns": [
+      "ImageID",
+      "bboxes"
+    ],
+    "missing_values": {
+      "ImageID": 0,
+      "bboxes": 0
+    },
+    "duplicate_image_ids": 0,
+    "total_detections": 75272,
+    "avg_detections_per_frame": 3.76,
+    "min_detections": 1,
+    "max_detections": 7,
+    "box_vector_lengths": [
+      4
+    ],
+    "coordinate_bounds": {
+      "min_c0": 14,
+      "max_c0": 473,
+      "min_c1": 36,
+      "max_c1": 502,
+      "min_c2": 13,
+      "max_c2": 475,
+      "min_c3": 40,
+      "max_c3": 501
+    },
+    "sample_records": [
+      {
+        "ImageID": 0,
+        "box_count": 5,
+        "first_box": [
+          282,
+          308,
+          58,
+          86
+        ]
+      },
+      {
+        "ImageID": 1,
+        "box_count": 4,
+        "first_box": [
+          97,
+          127,
+          297,
+          332
+        ]
+      },
+      {
+        "ImageID": 2,
+        "box_count": 4,
+        "first_box": [
+          45,
+          76,
+          244,
+          269
+        ]
+      }
+    ],
+    "contains_satellite_info": false,
+    "contains_debris_info": true,
+    "contains_direct_3d_state": false,
+    "contains_optical_detections": true
+  },
+  "val.csv": {
+    "file_name": "val.csv",
+    "file_size_mb": 0.17,
+    "total_rows": 2000,
+    "columns": [
+      "ImageID",
+      "bboxes"
+    ],
+    "missing_values": {
+      "ImageID": 0,
+      "bboxes": 0
+    },
+    "duplicate_image_ids": 0,
+    "total_detections": 7524,
+    "avg_detections_per_frame": 3.76,
+    "min_detections": 1,
+    "max_detections": 6,
+    "box_vector_lengths": [
+      4
+    ],
+    "coordinate_bounds": {
+      "min_c0": 16,
+      "max_c0": 472,
+      "min_c1": 45,
+      "max_c1": 499,
+      "min_c2": 17,
+      "max_c2": 474,
+      "min_c3": 45,
+      "max_c3": 498
+    },
+    "sample_records": [
+      {
+        "ImageID": 0,
+        "box_count": 3,
+        "first_box": [
+          428,
+          457,
+          381,
+          410
+        ]
+      },
+      {
+        "ImageID": 1,
+        "box_count": 3,
+        "first_box": [
+          311,
+          342,
+          300,
+          331
+        ]
+      },
+      {
+        "ImageID": 2,
+        "box_count": 4,
+        "first_box": [
+          335,
+          370,
+          273,
+          304
+        ]
+      }
+    ],
+    "contains_satellite_info": false,
+    "contains_debris_info": true,
+    "contains_direct_3d_state": false,
+    "contains_optical_detections": true
+  },
+  "sample_submission.csv": {
+    "file_name": "sample_submission.csv",
+    "file_size_mb": 1.89,
+    "total_rows": 5000,
+    "columns": [
+      "ImageID",
+      "bboxes"
+    ],
+    "missing_values": {
+      "ImageID": 0,
+      "bboxes": 0
+    },
+    "duplicate_image_ids": 0,
+    "total_detections": 18813,
+    "avg_detections_per_frame": 3.76,
+    "min_detections": 1,
+    "max_detections": 7,
+    "box_vector_lengths": [
+      5
+    ],
+    "coordinate_bounds": {
+      "min_c0": 6.52310191926464e-05,
+      "max_c0": 0.999954503248282,
+      "min_c1": 3.5261103391026616e-05,
+      "max_c1": 0.9999709944585617,
+      "min_c2": 0.0002122323481633659,
+      "max_c2": 0.9999636853639128,
+      "min_c3": 7.220934671758883e-05,
+      "max_c3": 0.999986674475307
+    },
+    "sample_records": [
+      {
+        "ImageID": 0,
+        "box_count": 4,
+        "first_box": [
+          0.728888443143207,
+          0.03746495919566417,
+          0.9025230258505721,
+          0.503327516532665,
+          0.13509383686832588
+        ]
+      },
+      {
+        "ImageID": 1,
+        "box_count": 3,
+        "first_box": [
+          0.5817142825052738,
+          0.5209715605365688,
+          0.6798927415740398,
+          0.07319950177794776,
+          0.10370633830749054
+        ]
+      },
+      {
+        "ImageID": 2,
+        "box_count": 5,
+        "first_box": [
+          0.46415436093187545,
+          0.8889196960856346,
+          0.2313885121890722,
+          0.7726511424054986,
+          0.9568470102584258
+        ]
+      }
+    ],
+    "contains_satellite_info": false,
+    "contains_debris_info": true,
+    "contains_direct_3d_state": false,
+    "contains_optical_detections": true
+  }
+}

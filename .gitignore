@@ -1,0 +1,23 @@
+# Python caches & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+
+# Node & Vite build artifacts
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment, IDE, logs & local database state
+.env
+.env.*
+.vercel/
+*.log
+sentinel/sentinel.db
+.DS_Store
+Thumbs.db

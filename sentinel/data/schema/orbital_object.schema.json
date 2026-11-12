@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrbitalObject",
+  "description": "SENTINEL Common Internal Orbital Object Model",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "object_type",
+    "status",
+    "position_x",
+    "position_y",
+    "position_z",
+    "velocity_x",
+    "velocity_y",
+    "velocity_z",
+    "altitude"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the orbital object (e.g., DEBRIS-0001, SAT-NAV-01, SENTINEL-01)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable designation"
+    },
+    "object_type": {
+      "type": "string",
+      "enum": [
+        "SERVICE_VEHICLE",
+        "ACTIVE_SATELLITE",
+        "FAILED_SATELLITE",
+        "DEBRIS",
+        "UNKNOWN"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "description": "Operational status (e.g., NOMINAL, FAULT, DRIFTING, CAPTURED, RELOCATED)"
+    },
+    "timestamp": {
+      "type": "number",
+      "description": "Epoch timestamp (seconds from simulation epoch)"
+    },
+    "position_x": { "type": "number", "description": "Position X in km (Earth-Centered Inertial - ECI)" },
+    "position_y": { "type": "number", "description": "Position Y in km (ECI)" },
+    "position_z": { "type": "number", "description": "Position Z in km (ECI)" },
+    "velocity_x": { "type": "number", "description": "Velocity X in km/s (ECI)" },
+    "velocity_y": { "type": "number", "description": "Velocity Y in km/s (ECI)" },
+    "velocity_z": { "type": "number", "description": "Velocity Z in km/s (ECI)" },
+    "acceleration_x": { "type": "number", "description": "Acceleration X in km/s^2" },
+    "acceleration_y": { "type": "number", "description": "Acceleration Y in km/s^2" },
+    "acceleration_z": { "type": "number", "description": "Acceleration Z in km/s^2" },
+    "altitude": { "type": "number", "description": "Orbital altitude above Earth surface in km" },
+    "inclination": { "type": "number", "description": "Orbital inclination in degrees" },
+    "eccentricity": { "type": "number", "description": "Orbital eccentricity (0.0 for circular)" },
+    "orbital_period": { "type": "number", "description": "Orbital period in seconds" },
+    "mass": { "type": "number", "description": "Estimated mass in kilograms" },
+    "risk_level": {
+      "type": "string",
+      "enum": ["SAFE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "health_status": {
+      "type": "string",
+      "enum": ["HEALTHY", "DEGRADED", "CRITICAL", "NON-RESPONSIVE", "DEBRIS"]
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string" },
+        "derived": { "type": "boolean" },
+        "optical_image_id": { "type": "integer" },
+        "raw_bbox": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "optical_confidence": { "type": "number" },
+        "apparent_cross_section_m2": { "type": "number" }
+      }
+    }
+  }
+}

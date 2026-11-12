@@ -1,0 +1,44 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm --prefix sentinel/frontend ci --include=dev",
+  "buildCommand": "npm --prefix sentinel/frontend run build",
+  "outputDirectory": "sentinel/frontend/dist",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30,
+      "includeFiles": "{sentinel/__init__.py,sentinel/backend/**,sentinel/data/processed/debris_catalog.json}",
+      "excludeFiles": "{sentinel/frontend/**,sentinel/data/raw/**,sentinel/data/processed/debris_catalog.csv,sentinel/tests/**,sentinel/sentinel.db,debris-detection/**,**/*.log}"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/docs",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/((?!api$|api/|docs|openapi\\.json).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
