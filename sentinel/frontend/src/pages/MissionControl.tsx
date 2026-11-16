@@ -1,11 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import OriginkitGlobe from '../three/Globe';
 import { OrbitalCanvas, CameraPresetMode } from '../three/OrbitalCanvas';
 import { SystemState } from '../types';
 import { api } from '../services/api';
 import {
-  AlertTriangle, ShieldAlert, ShieldCheck, Play, Pause, RotateCcw,
-  SkipForward, Rocket, FileText, ChevronDown, Radio, Activity,
-  Sliders, Globe, Sparkles
+  Compass, Zap, Eye, Download, ChevronDown, Edit3, Rocket,
+  FileText, ShieldAlert, Globe, Play, Pause, SkipForward, RotateCcw,
+  LayoutDashboard, Radio, Activity, AlertTriangle, ShieldCheck
 } from 'lucide-react';
 
 interface MissionControlProps {
@@ -27,6 +28,8 @@ export const MissionControl: React.FC<MissionControlProps> = ({
   onSelectObject,
   cameraMode,
   onChangeCameraMode,
+  onOpenManeuverLab,
+  onJumpToCPA,
   onNavigateToReports,
   onSelectScenario,
 }) => {
@@ -39,20 +42,25 @@ export const MissionControl: React.FC<MissionControlProps> = ({
     safety_status = 'MONITORING',
     screening_distance_km = 25.0,
     maneuver_candidates = [],
+    selected_candidate,
     executed_maneuver
   } = systemState;
 
+  // View Mode: Default to EXECUTIVE ("in the beginning of the dashboard use the other pages layout and theme")
+  const [dashboardViewMode, setDashboardViewMode] = useState<'EXECUTIVE' | 'TACTICAL'>('EXECUTIVE');
   const [isAutoExecuting, setIsAutoExecuting] = useState<boolean>(false);
-  const [activeBottomTab, setActiveBottomTab] = useState<'DENSITY' | 'SHELL' | 'TIMELINE'>('TIMELINE');
-  const [mobileHudOpen, setMobileHudOpen] = useState<boolean>(false);
+  const [viewMode3D, setViewMode3D] = useState<'orbits' | 'globe'>('orbits');
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
+  const [isStepping, setIsStepping] = useState<boolean>(false);
+
+  // Bottom tab for tactical view
+  const [activeBottomTab, setActiveBottomTab] = useState<'DENSITY' | 'SHELL' | 'TIMELINE'>('TIMELINE');
 
   const simTime = clock?.sim_time ?? 0;
   const isRunning = clock?.is_running ?? true;
-  const timeScale = clock?.time_scale ?? 25;
   const scenarioName = clock?.scenario_name || 'Scenario 2: Avoidable Close Approach';
 
-  // Format live UTC Epoch from base + simTime
+  // Compute live UTC Epoch from base + simTime
   const epochString = useMemo(() => {
     const baseEpochMs = new Date('2024-10-27T14:38:05Z').getTime();
     const currentMs = baseEpochMs + Math.round(simTime * 1000);
@@ -61,793 +69,1387 @@ export const MissionControl: React.FC<MissionControlProps> = ({
     return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
   }, [simTime]);
 
-  // Determine active scenario category
-  const isScenario1 = scenarioName.toLowerCase().includes('normal') || scenarioName.toLowerCase().includes('scenario 1');
-  const isScenario3 = scenarioName.toLowerCase().includes('no acceptable') || scenarioName.toLowerCase().includes('scenario 3');
-  const isScenario2 = !isScenario1 && !isScenario3;
+  // Compute exact 2-body RK4 orbital ground track from live ECI (position, velocity) accounting for Earth rotation
+  const computeRk4GroundTrack = (obj?: any, horizonSec = 5400, steps = 72) => {
+    if (!obj || typeof obj.position_x !== 'number') return [];
+    const MU = 398600.4418;
+    const omegaDegS = 360.0 / 86164.0905;
+    let rx = obj.position_x, ry = obj.position_y, rz = obj.position_z;
+    let vx = obj.velocity_x, vy = obj.velocity_y, vz = obj.velocity_z;
+    const accel = (x: number, y: number, z: number) => {
+      const r2 = x * x + y * y + z * z;
+      const r = Math.sqrt(r2) || 1;
+      const c = -MU / (r2 * r);
+      return [c * x, c * y, c * z];
+    };
+    const pts: Array<{ lat: number; lng: number }> = [];
+    const dt = horizonSec / steps;
+    for (let i = 0; i <= steps; i++) {
+      const t = i * dt;
+      const r = Math.sqrt(rx * rx + ry * ry + rz * rz) || 1;
+      const lat = Math.asin(Math.max(-1, Math.min(1, rz / r))) * (180 / Math.PI);
+      let lng = Math.atan2(ry, rx) * (180 / Math.PI) - omegaDegS * (simTime + t);
+      lng = ((((lng + 180) % 360) + 360) % 360) - 180;
+      pts.push({ lat, lng });
 
-  // Collision risk metrics
+      // Sub-step RK4 (2 substeps of dt/2 for crisp orbital closure)
+      const h = dt * 0.5;
+      for (let s = 0; s < 2; s++) {
+        const [ax1, ay1, az1] = accel(rx, ry, rz);
+        const rx2 = rx + 0.5 * h * vx, ry2 = ry + 0.5 * h * vy, rz2 = rz + 0.5 * h * vz;
+        const vx2 = vx + 0.5 * h * ax1, vy2 = vy + 0.5 * h * ay1, vz2 = vz + 0.5 * h * az1;
+        const [ax2, ay2, az2] = accel(rx2, ry2, rz2);
+        const rx3 = rx + 0.5 * h * vx2, ry3 = ry + 0.5 * h * vy2, rz3 = rz + 0.5 * h * vz2;
+        const vx3 = vx + 0.5 * h * ax2, vy3 = vy + 0.5 * h * ay2, vz3 = vz + 0.5 * h * az2;
+        const [ax3, ay3, az3] = accel(rx3, ry3, rz3);
+        const rx4 = rx + h * vx3, ry4 = ry + h * vy3, rz4 = rz + h * vz3;
+        const vx4 = vx + h * ax3, vy4 = vy + h * ay3, vz4 = vz + h * az3;
+        const [ax4, ay4, az4] = accel(rx4, ry4, rz4);
+        rx += (h / 6) * (vx + 2 * vx2 + 2 * vx3 + vx4);
+        ry += (h / 6) * (vy + 2 * vy2 + 2 * vy3 + vy4);
+        rz += (h / 6) * (vz + 2 * vz2 + 2 * vz3 + vz4);
+        vx += (h / 6) * (ax1 + 2 * ax2 + 2 * ax3 + ax4);
+        vy += (h / 6) * (ay1 + 2 * ay2 + 2 * ay3 + ay4);
+        vz += (h / 6) * (az1 + 2 * az2 + 2 * az3 + az4);
+      }
+    }
+    return pts;
+  };
+
+  // Convert 3D orbital ECI position to sub-satellite ECEF latitude/longitude accounting for Earth rotation
+  const getObjectLatLng = (obj?: any, defaultLat = 28.5, defaultLng = -80.5) => {
+    if (!obj || typeof obj.position_x !== 'number') return { lat: defaultLat, lng: defaultLng };
+    const x = obj.position_x;
+    const y = obj.position_y;
+    const z = obj.position_z;
+    const r = Math.sqrt(x * x + y * y + z * z);
+    if (r === 0) return { lat: defaultLat, lng: defaultLng };
+    const lat = Math.asin(Math.max(-1, Math.min(1, z / r))) * (180 / Math.PI);
+    const omegaEarthDegS = (360.0 / 86164.0905);
+    let lng = Math.atan2(y, x) * (180 / Math.PI) - omegaEarthDegS * simTime;
+    lng = ((((lng + 180) % 360) + 360) % 360) - 180;
+    return { lat: Number(lat.toFixed(2)), lng: Number(lng.toFixed(2)) };
+  };
+
+  const sat01Coords = getObjectLatLng(sentinel, 0.0, 0.0);
+  const targetCoords = getObjectLatLng(target, 45.0, 15.0);
+  const satSpeedKms = sentinel
+    ? Math.sqrt(sentinel.velocity_x ** 2 + sentinel.velocity_y ** 2 + sentinel.velocity_z ** 2)
+    : 7.558;
+
+  // Memoize globe marker & dot configs so telemetry polling never recreates WebGL objects
+  const globeDotsConfig = useMemo(
+    () => ({ color: "#38bdf8", size: 5, density: 8, allDots: false }),
+    []
+  );
+
+  const globeTracksConfig = useMemo(() => {
+    const tracks: Array<{ id: string; color: string; points: Array<{ lat: number; lng: number }>; dashed?: boolean }> = [];
+    if (sentinel) {
+      tracks.push({
+        id: 'sat-orbit-track',
+        color: '#10b981',
+        points: computeRk4GroundTrack(sentinel, 5400, 72),
+      });
+    }
+    if (target) {
+      tracks.push({
+        id: 'threat-orbit-track',
+        color: '#f43f5e',
+        points: computeRk4GroundTrack(target, 5400, 72),
+        dashed: true,
+      });
+    }
+    return tracks;
+  }, [
+    clock?.scenario_name,
+    target?.id,
+    executed_maneuver?.id,
+    sentinel?.status,
+    Math.floor(simTime / 15)
+  ]);
+
+  const globeMarkerConfig = useMemo(() => {
+    const groundStationMarkers = [
+      { lat: 28.5, lng: -80.6, label: 'Cape Canaveral Space Force Station' },
+      { lat: 45.9, lng: 63.3, label: 'Baikonur Cosmodrome' },
+      { lat: 5.2, lng: -52.8, label: 'Guiana Space Centre, Kourou' },
+      { lat: 30.4, lng: 130.9, label: 'Tanegashima Space Center' },
+      { lat: 78.2, lng: 15.6, label: 'Svalbard Satellite Station' },
+      { lat: -35.4, lng: 148.9, label: 'Canberra Deep Space Station' },
+      { lat: 13.7, lng: 80.2, label: 'Satish Dhawan Space Centre' },
+      { lat: 49.8, lng: 8.6, label: 'ESOC European Space Operations' },
+      { lat: -2.3, lng: -44.4, label: 'Alcantara Launch Center' },
+    ];
+    const dynamicMarkers = [
+      { lat: sat01Coords.lat, lng: sat01Coords.lng, label: 'SAT-01 (Protected Asset)' },
+    ];
+    if (target) {
+      dynamicMarkers.push({ lat: targetCoords.lat, lng: targetCoords.lng, label: target.name });
+    }
+    return {
+      markers: [
+        ...dynamicMarkers,
+        ...groundStationMarkers,
+      ],
+      color: "#ef4444",
+      size: 45,
+    };
+  }, [sat01Coords.lat, sat01Coords.lng, targetCoords.lat, targetCoords.lng, target?.id, target?.name]);
+
+  // Match primary conjunction risk between SAT-01 and target debris
   const threatRisk = risks?.find(r =>
     (r.object_a_id === target?.id && (r.object_b_id === sentinel?.id || r.object_b_id === 'SAT-01')) ||
     (r.object_b_id === target?.id && (r.object_a_id === sentinel?.id || r.object_a_id === 'SAT-01'))
   ) || (risks && risks.length > 0 ? risks[0] : null);
 
+  const closingSpeedKms = (threatRisk && threatRisk.relative_speed_kms > 0)
+    ? threatRisk.relative_speed_kms
+    : (sentinel?.target_rel_velocity_kms ?? 8.12);
+
   const isExecuted = Boolean(executed_maneuver);
   const isCollided = safety_status === 'COLLISION' || sentinel?.status === 'IMPACT_DESTROYED';
 
-  // Dynamic collision probability
-  const collisionProbabilityPct = isScenario1
-    ? 0.0001
-    : isExecuted
-    ? 0.0001
-    : isScenario3 || isCollided
-    ? 99.9
-    : 98.2;
+  const predictedCpaKm = isExecuted
+    ? (executed_maneuver?.resulting_d_cpa_km ?? 30.57)
+    : isCollided
+    ? 0.0
+    : ((threatRisk && typeof threatRisk.cpa_distance_km === 'number')
+        ? threatRisk.cpa_distance_km
+        : (target?.metadata?.predicted_cpa_km ?? 0.0128));
 
-  const threatActive = !isScenario1 && !isExecuted;
-
-  // CPA and T-Minus calculations
-  const cpaDistanceKm = isExecuted
-    ? (executed_maneuver?.resulting_d_cpa_km ?? 34.2)
-    : isScenario1
-    ? 58.4
-    : (threatRisk?.cpa_distance_km ?? target?.metadata?.predicted_cpa_km ?? 0.0128);
-
-  const tCpaRemainingS = isCollided
+  const predictedCpaTimeS = isCollided
     ? 0
-    : Math.max(0, Math.round(threatRisk?.cpa_time_s ?? 0));
-  const tMinusMinutes = Math.floor(tCpaRemainingS / 60);
-  const tMinusSeconds = tCpaRemainingS % 60;
-  const tMinusStr = `00:${String(tMinusMinutes).padStart(2, '0')}:${String(tMinusSeconds).padStart(2, '0')}`;
+    : (threatRisk?.cpa_time_s ?? target?.metadata?.cpa_time_s ?? 0);
 
+  const isThreatActive = !isExecuted && (safety_status === 'WARNING' || safety_status === 'EVALUATING' || safety_status === 'REVIEW REQUIRED' || isCollided);
+  const isVerified = safety_status === 'VERIFIED' || isExecuted;
+
+  // Exact RIC (Radial, In-Track, Cross-Track) decomposition from live ECI state vectors
+  const ricSep = useMemo(() => {
+    if (!sentinel || !target) return { r: 0, t: 0, w: 0 };
+    const rx = sentinel.position_x, ry = sentinel.position_y, rz = sentinel.position_z;
+    const vx = sentinel.velocity_x, vy = sentinel.velocity_y, vz = sentinel.velocity_z;
+    const rMag = Math.sqrt(rx * rx + ry * ry + rz * rz) || 1;
+    const rHat = [rx / rMag, ry / rMag, rz / rMag];
+    const hx = ry * vz - rz * vy;
+    const hy = rz * vx - rx * vz;
+    const hz = rx * vy - ry * vx;
+    const hMag = Math.sqrt(hx * hx + hy * hy + hz * hz) || 1;
+    const wHat = [hx / hMag, hy / hMag, hz / hMag];
+    const tHat = [
+      wHat[1] * rHat[2] - wHat[2] * rHat[1],
+      wHat[2] * rHat[0] - wHat[0] * rHat[2],
+      wHat[0] * rHat[1] - wHat[1] * rHat[0],
+    ];
+    const rel = [target.position_x - rx, target.position_y - ry, target.position_z - rz];
+    return {
+      r: Math.abs(rel[0] * rHat[0] + rel[1] * rHat[1] + rel[2] * rHat[2]),
+      t: Math.abs(rel[0] * tHat[0] + rel[1] * tHat[1] + rel[2] * tHat[2]),
+      w: Math.abs(rel[0] * wHat[0] + rel[1] * wHat[1] + rel[2] * wHat[2]),
+    };
+  }, [
+    sentinel?.position_x, sentinel?.position_y, sentinel?.position_z,
+    sentinel?.velocity_x, sentinel?.velocity_y, sentinel?.velocity_z,
+    target?.position_x, target?.position_y, target?.position_z
+  ]);
+
+  const deltaR = ricSep.r;
+  const deltaT = ricSep.t;
+  const deltaW = ricSep.w;
+  const violationDepthKm = target ? Math.max(0, screening_distance_km - predictedCpaKm) : 0;
+  const violationPct = target ? Math.min(100, Math.round((violationDepthKm / Math.max(1, screening_distance_km)) * 100)) : 0;
+
+  const handleTogglePlayPause = async () => {
+    try {
+      if (clock?.is_running) await api.pause();
+      else await api.play();
+    } catch (e) {
+      console.error('Clock toggle failed:', e);
+    }
+  };
+
+  const handleStep = async (sec: number) => {
+    setIsStepping(true);
+    try {
+      await api.stepSimulation(sec);
+    } catch (e) {
+      console.error('Step failed:', e);
+    } finally {
+      setIsStepping(false);
+    }
+  };
+
+  const handleSpeedChange = async (spd: number) => {
+    try {
+      await api.setSpeed(spd);
+    } catch (e) {
+      console.error('Speed update failed:', e);
+    }
+  };
+
+  const handleResetClock = async () => {
+    try {
+      if (onSelectScenario) {
+        onSelectScenario(scenarioName);
+      } else {
+        await api.reset();
+      }
+    } catch (e) {
+      console.error('Reset failed:', e);
+    }
+  };
+
+  const handleAutonomousAvoidance = async () => {
+    setIsAutoExecuting(true);
+    try {
+      await api.runAutonomousAvoidance();
+    } catch (e) {
+      console.error('Autonomous avoidance execution failed:', e);
+    } finally {
+      setIsAutoExecuting(false);
+    }
+  };
+
+  // Live Hydrazine Fuel Telemetry
+  const fuelRemaining = sentinel?.fuel_kg ?? 148.7;
+  const fuelCapacity = 200.0;
+  const fuelPct = Math.max(0, Math.min(100, (fuelRemaining / fuelCapacity) * 100));
+  const tankLiquidY = 26 + (100 - fuelPct) * 0.88;
+  const tankLiquidHeight = Math.max(0, 114 - tankLiquidY);
+
+  // Live distance and CPA countdown
   const currentDistKm = sentinel && target
     ? Math.sqrt(
         (target.position_x - sentinel.position_x) ** 2 +
         (target.position_y - sentinel.position_y) ** 2 +
         (target.position_z - sentinel.position_z) ** 2
       )
-    : (isScenario1 ? 64.2 : 12.8);
+    : 12.8;
 
   const currentDistDisplay = currentDistKm < 1.0
-    ? `${(currentDistKm * 1000).toFixed(1)}m`
+    ? `${(currentDistKm * 1000).toFixed(0)}m`
     : `${currentDistKm.toFixed(2)} km`;
 
-  // Scenario switching handler
-  const handleSelectScenario = async (sc: string) => {
-    try {
-      if (onSelectScenario) {
-        onSelectScenario(sc);
-      } else {
-        await api.loadScenario(sc);
+  const tCpaRemainingS = Math.max(0, Math.round(predictedCpaTimeS));
+  const tMinusMinutes = Math.floor(tCpaRemainingS / 60);
+  const tMinusSeconds = tCpaRemainingS % 60;
+  const tMinusStr = `00:${String(tMinusMinutes).padStart(2, '0')}:${String(tMinusSeconds).padStart(2, '0')}`;
+
+  // Live Orbital Catalogue Screening Rows
+  const buildTrackedCatalogueRows = () => {
+    const satAlt = sentinel?.altitude ?? 600.0;
+    const rows = [
+      {
+        id: sentinel?.id || 'SAT-01',
+        norad: '48274',
+        name: "SAT-A34 'SENTINEL'",
+        desc: `Primary protected LEO payload • ${satAlt.toFixed(1)} km orbit`,
+        statusPct: isVerified ? 98 : isCollided ? 0 : 92,
+        statusColor: isCollided ? 'bg-rose-600' : isVerified ? 'bg-emerald-500' : 'bg-emerald-500',
+        distanceLabel: `${satAlt.toFixed(1)} km`,
+        statusLabel: isCollided ? 'COLLISION' : isVerified ? 'VERIFIED' : (sentinel?.status || 'ACTIVE')
       }
-      if (sc.toLowerCase().includes('close approach') || sc.toLowerCase().includes('no acceptable')) {
-        onChangeCameraMode('COLLISION');
-      } else {
-        onChangeCameraMode('GLOBAL');
-      }
-    } catch (e) {
-      console.error('Failed to load scenario:', e);
+    ];
+
+    if (target) {
+      rows.push({
+        id: target.id,
+        norad: '49127',
+        name: target.name || 'DEBRIS #8871 (Cosmos-1408)',
+        desc: 'Tracked hypervelocity conjunction hazard ephemeris',
+        statusPct: isCollided ? 100 : isThreatActive ? Math.max(15, 100 - violationPct) : 96,
+        statusColor: isCollided ? 'bg-rose-600' : isThreatActive ? 'bg-rose-500' : 'bg-emerald-500',
+        distanceLabel: currentDistDisplay,
+        statusLabel: isCollided ? 'IMPACT' : isThreatActive ? 'CRITICAL' : 'CLEARED'
+      });
     }
+
+    const extraObjects = (objects || [])
+      .filter(o => o.id !== sentinel?.id && o.id !== target?.id)
+      .slice(0, 3);
+
+    if (extraObjects.length > 0) {
+      extraObjects.forEach((obj, idx) => {
+        const distKm = sentinel
+          ? Math.sqrt(
+              (obj.position_x - sentinel.position_x) ** 2 +
+              (obj.position_y - sentinel.position_y) ** 2 +
+              (obj.position_z - sentinel.position_z) ** 2
+            )
+          : (48.2 + idx * 32.1);
+        const isMonitored = distKm < 80;
+        rows.push({
+          id: obj.id,
+          norad: obj.id.replace(/\D/g, '').slice(0, 5) || String(41000 + idx * 123),
+          name: obj.name || obj.id,
+          desc: `${obj.object_type || 'DEBRIS'} • Tracked orbital ephemeris pass`,
+          statusPct: isMonitored ? 55 : 82,
+          statusColor: isMonitored ? 'bg-amber-500' : 'bg-indigo-500',
+          distanceLabel: `${distKm.toFixed(1)} km`,
+          statusLabel: isMonitored ? 'MONITORED' : 'SAFE PASS'
+        });
+      });
+    }
+
+    return rows;
   };
 
-  // Play / Pause toggle
-  const handleTogglePlay = async () => {
-    try {
-      if (isRunning) await api.pause();
-      else await api.play();
-    } catch (e) {
-      console.error('Toggle play error:', e);
-    }
-  };
+  const trackedRows = buildTrackedCatalogueRows();
 
-  // Step simulation
-  const handleStep = async (sec: number) => {
-    try {
-      await api.stepSimulation(sec);
-    } catch (e) {
-      console.error('Step error:', e);
-    }
-  };
-
-  // Reset simulation
-  const handleReset = async () => {
-    try {
-      await api.reset();
-    } catch (e) {
-      console.error('Reset error:', e);
-    }
-  };
-
-  // Execute avoidance maneuver
-  const handleExecuteBurn = async () => {
-    setIsAutoExecuting(true);
-    try {
-      const candidate = maneuver_candidates[0] || { id: 'burn_prograde_opt' };
-      await api.executeManeuver(candidate.id);
-    } catch (e) {
-      console.error('Maneuver execution error:', e);
-    } finally {
-      setIsAutoExecuting(false);
-    }
-  };
-
-  // Fuel telemetry
-  const fuelRemaining = sentinel?.fuel_kg ?? (isScenario3 ? 0.2 : 148.7);
-  const fuelCapacity = 200.0;
-  const fuelPct = Math.max(0, Math.min(100, (fuelRemaining / fuelCapacity) * 100));
-
-  return (
-    <div className="relative w-full h-full overflow-hidden bg-[#02050f] text-cyan-300 font-mono select-none">
-      
-      {/* ── 1. FULL-BLEED 3D ORBITAL VIEWPORT ── */}
-      <div className="absolute inset-0 z-0">
-        <OrbitalCanvas
-          objects={objects}
-          sentinel={sentinel}
-          target={target}
-          risks={risks}
-          selectedObjectId={selectedObjectId}
-          onSelectObject={onSelectObject}
-          cameraMode={cameraMode}
-          onChangeCameraMode={onChangeCameraMode}
-          simTime={simTime}
-          isRunning={isRunning}
-          timeScale={timeScale}
-          theme="dark"
-          hideControls={true}
-        />
-      </div>
-
-      {/* ── 2. TOP AEROSPACE HUD HEADER (Full width glassmorphism) ── */}
-      <header className="absolute top-0 left-0 right-0 z-20 px-3 sm:px-5 py-2.5 bg-[#071322]/85 backdrop-blur-md border-b border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
+  // ══════════════════════════════════════════════════════════════════════════════
+  // 1. EXECUTIVE THEME & LAYOUT (DEFAULT - MATCHES ALL OTHER APP PAGES)
+  // ══════════════════════════════════════════════════════════════════════════════
+  if (dashboardViewMode === 'EXECUTIVE') {
+    return (
+      <div className="w-full h-full overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-7 flex flex-col gap-4 sm:gap-5 bg-[#f4f6fc] text-slate-800 font-sans">
         
-        {/* Left: ODTS Logo & Title */}
-        <div className="flex items-center gap-2.5">
-          <div className="relative w-7 h-7 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full border border-cyan-400/60 animate-ping opacity-30" />
-            <div className="w-5 h-5 rounded-full border-2 border-cyan-400 flex items-center justify-center bg-cyan-950/60">
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#00f0ff]" />
-            </div>
-          </div>
+        {/* ── TOP ACTION & TITLE BAR ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shrink-0">
           <div>
-            <div className="text-[12px] sm:text-[14px] font-black tracking-wider text-cyan-100 flex items-center gap-1.5">
-              <span>ORBITAL DEBRIS TRACKING SYSTEM (ODTS)</span>
-              <span className="text-cyan-400/60 font-normal">|</span>
-              <span className="text-cyan-400 font-bold">ACTIVE MONITORING</span>
-            </div>
-            <div className="text-[10px] text-cyan-400/70 hidden sm:block tracking-wide">
-              SENTINEL AUTONOMOUS COLLISION AVOIDANCE & FLIGHT SAFETY
-            </div>
-          </div>
-        </div>
-
-        {/* Center: Quick Scenario Switcher */}
-        <div className="flex items-center gap-1.5 bg-[#030a14]/90 p-1 rounded-lg border border-cyan-500/25 overflow-x-auto max-w-full">
-          <button
-            onClick={() => handleSelectScenario('Scenario 1: Normal Operation')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer whitespace-nowrap ${
-              isScenario1
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                : 'text-slate-400 hover:text-cyan-200 hover:bg-cyan-950/40'
-            }`}
-          >
-            [1] NORMAL
-          </button>
-          <button
-            onClick={() => handleSelectScenario('Scenario 2: Avoidable Close Approach')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer whitespace-nowrap ${
-              isScenario2
-                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
-                : 'text-slate-400 hover:text-cyan-200 hover:bg-cyan-950/40'
-            }`}
-          >
-            [2] CLOSE APPROACH
-          </button>
-          <button
-            onClick={() => handleSelectScenario('Scenario 3: No Acceptable Maneuver')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer whitespace-nowrap ${
-              isScenario3
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                : 'text-slate-400 hover:text-cyan-200 hover:bg-cyan-950/40'
-            }`}
-          >
-            [3] CRITICAL (NO BURN)
-          </button>
-        </div>
-
-        {/* Right: Epoch, System Status & Camera Modes */}
-        <div className="flex items-center gap-3">
-          <div className="hidden lg:flex flex-col text-right">
-            <span className="text-[10px] text-cyan-400/80 font-mono tracking-wider">
-              EPOCH: {epochString}
-            </span>
-            <div className="flex items-center justify-end gap-1.5 text-[10px]">
-              <span className="text-slate-400">SYSTEM STATUS:</span>
-              <span className={`font-bold flex items-center gap-1 ${
-                threatActive ? 'text-rose-400' : 'text-emerald-400'
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                MISSION CONTROL • CONJUNCTION ASSESSMENT
+              </h1>
+              <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full ${
+                isCollided
+                  ? 'bg-rose-100 text-rose-700 animate-pulse'
+                  : isVerified
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : isThreatActive
+                  ? 'bg-amber-100 text-amber-700 animate-pulse'
+                  : 'bg-indigo-100 text-indigo-700'
               }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  threatActive ? 'bg-rose-500 animate-ping' : 'bg-emerald-400'
-                }`} />
-                {threatActive ? 'WARNING' : isExecuted ? 'VERIFIED SAFE' : 'NOMINAL'}
+                {isCollided ? 'IMPACT COLLISION' : isVerified ? 'VERIFIED SAFE' : safety_status}
               </span>
             </div>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              Autonomous Satellite Safety Analytics & Hypervelocity Debris Avoidance
+            </p>
           </div>
 
-          {/* Camera Quick Switcher */}
-          <div className="hidden sm:flex items-center gap-1 bg-[#030a14]/90 p-1 rounded-lg border border-cyan-500/25">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 relative">
+            {/* View Mode Switcher Pill */}
+            <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+              <button
+                onClick={() => setDashboardViewMode('EXECUTIVE')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-[#4f46e5] text-white shadow-xs"
+                title="Executive Dashboard View (Matches Other Pages)"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Executive View</span>
+              </button>
+              <button
+                onClick={() => setDashboardViewMode('TACTICAL')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
+                title="Dark Aerospace Military HUD (ODTS)"
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>Tactical ODTS</span>
+              </button>
+            </div>
+
+            {/* Mission Data Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span>MISSION DATA</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs">
+                  <button
+                    onClick={() => {
+                      setShowExportMenu(false);
+                      if (onNavigateToReports) onNavigateToReports();
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-medium flex items-center gap-2 cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>View Mission Report</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowExportMenu(false);
+                      window.print();
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-medium flex items-center gap-2 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Print Telemetry Summary</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Reset Simulation Scenario */}
             <button
-              onClick={() => onChangeCameraMode('GLOBAL')}
-              className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${
-                cameraMode === 'GLOBAL' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-cyan-300 hover:bg-cyan-900/40'
-              }`}
-              title="Earth Global View"
+              onClick={handleResetClock}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+              title="Re-run Simulation Scenario"
             >
-              GLOBAL
+              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+              <span>RESET</span>
             </button>
+
+            {/* Execute Avoidance Maneuver Burn */}
             <button
-              onClick={() => onChangeCameraMode('LEO')}
-              className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${
-                cameraMode === 'LEO' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-cyan-300 hover:bg-cyan-900/40'
+              onClick={handleAutonomousAvoidance}
+              disabled={isAutoExecuting || isVerified}
+              className={`flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold shadow-md transition-all active:scale-98 cursor-pointer ${
+                isVerified
+                  ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                  : isCollided
+                  ? 'bg-rose-600 text-white shadow-rose-500/20'
+                  : 'bg-[#4f46e5] hover:bg-[#4338ca] text-white shadow-indigo-500/20'
               }`}
-              title="Low Earth Orbit"
             >
-              LEO
-            </button>
-            <button
-              onClick={() => onChangeCameraMode('FOLLOW_SENTINEL')}
-              className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${
-                cameraMode === 'FOLLOW_SENTINEL' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-cyan-300 hover:bg-cyan-900/40'
-              }`}
-              title="Lock SAT-A34"
-            >
-              SAT-A34
-            </button>
-            <button
-              onClick={() => onChangeCameraMode('COLLISION')}
-              className={`px-2 py-0.5 text-[10px] rounded cursor-pointer ${
-                cameraMode === 'COLLISION' || cameraMode === 'PROXIMITY'
-                  ? 'bg-rose-500 text-white font-bold animate-pulse'
-                  : 'text-rose-300 hover:bg-rose-900/40'
-              }`}
-              title="Encounter Vector View"
-            >
-              ENCOUNTER
+              <Rocket className="w-4 h-4 text-white" />
+              <span>
+                {isAutoExecuting
+                  ? 'FIRING RCS THRUSTERS...'
+                  : isVerified
+                  ? 'AVOIDANCE VERIFIED SAFE ✓'
+                  : isCollided
+                  ? 'COLLISION OCCURRED'
+                  : 'EXECUTE AVOIDANCE'}
+              </span>
             </button>
           </div>
+        </div>
 
-          {/* Mobile HUD Toggle */}
+        {/* ── MASTER 2-COLUMN COMMAND BRIDGE: TELEMETRY (LEFT 7 COLS) | 3D VIEWPORT (RIGHT 5 COLS) ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-stretch flex-1 min-h-0">
+          
+          {/* ── LEFT COLUMN (7 COLS): EXECUTIVE TELEMETRY & CARDS ── */}
+          <div className="lg:col-span-7 flex flex-col gap-4 sm:gap-5">
+            
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 items-stretch">
+              
+              {/* ── CARD 1: CONJUNCTION THREAT LEVEL ── */}
+              <div className="md:col-span-6 bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between gap-4">
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
+                        CONJUNCTION THREAT LEVEL
+                      </span>
+                      <div className="flex flex-wrap items-baseline gap-2 mt-1">
+                        <span className={`text-xl sm:text-2xl font-black tracking-tight font-mono ${
+                          isCollided ? 'text-rose-600' : isThreatActive ? 'text-rose-600' : isVerified ? 'text-emerald-600' : 'text-slate-900'
+                        }`}>
+                          {isCollided ? '0.00 m (IMPACT)' : predictedCpaKm < 25 ? `${predictedCpaKm.toFixed(2)} km` : 'SAFE (>25km)'}
+                        </span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded font-mono ${
+                          isCollided
+                            ? 'bg-rose-100 text-rose-700 animate-pulse'
+                            : isThreatActive
+                            ? 'bg-rose-50 text-rose-600'
+                            : 'bg-emerald-50 text-emerald-600'
+                        }`}>
+                          {isCollided ? 'COLLISION' : safety_status}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5 font-medium">
+                        Range: {currentDistDisplay} • T-Minus: {tMinusStr}
+                      </div>
+                    </div>
+
+                    <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0 ${
+                      isCollided || isThreatActive ? 'bg-rose-500 shadow-rose-500/20' : 'bg-[#6366f1] shadow-indigo-500/20'
+                    }`}>
+                      <ShieldAlert className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="w-20 sm:w-24 text-slate-500 truncate" title="Radial Separation ΔR">Radial ΔR</span>
+                    <span className="w-14 sm:w-16 font-mono font-bold text-slate-800">{deltaR.toFixed(2)} km</span>
+                    <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#3b82f6] rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.round((deltaR / 10) * 100))}%` }} />
+                    </div>
+                    <span className="w-8 sm:w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaR / 10) * 100))}%</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="w-20 sm:w-24 text-slate-500 truncate" title="In-Track Separation ΔT">In-Track ΔT</span>
+                    <span className="w-14 sm:w-16 font-mono font-bold text-slate-800">{deltaT.toFixed(2)} km</span>
+                    <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#6366f1] rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.round((deltaT / 25) * 100))}%` }} />
+                    </div>
+                    <span className="w-8 sm:w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaT / 25) * 100))}%</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="w-20 sm:w-24 text-slate-500 truncate" title="Cross-Track Separation ΔW">Cross-Track ΔW</span>
+                    <span className="w-14 sm:w-16 font-mono font-bold text-slate-800">{deltaW.toFixed(2)} km</span>
+                    <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#f59e0b] rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.round((deltaW / 25) * 100))}%` }} />
+                    </div>
+                    <span className="w-8 sm:w-9 text-right text-slate-400 font-mono text-[11px]">{Math.min(100, Math.round((deltaW / 25) * 100))}%</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="w-20 sm:w-24 text-slate-500 truncate" title="Screening Penetration">Violation Depth</span>
+                    <span className="w-14 sm:w-16 font-mono font-bold text-rose-600">{violationDepthKm.toFixed(1)} km</span>
+                    <div className="flex-1 mx-1.5 sm:mx-2.5 bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#f43f5e] rounded-full transition-all duration-300" style={{ width: `${violationPct}%` }} />
+                    </div>
+                    <span className="w-8 sm:w-9 text-right text-rose-500 font-mono text-[11px] font-bold">{violationPct}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── CARD 2: AVOIDANCE BURN PROFILE (ΔV) — LIVE RK4 CANDIDATES ── */}
+              <div className="md:col-span-6 bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between">
+                <div className="w-full flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2.5">
+                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
+                    AVOIDANCE BURN PROFILE (ΔV)
+                  </h2>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                    isVerified
+                      ? 'text-emerald-700 bg-emerald-50'
+                      : isCollided
+                      ? 'text-rose-700 bg-rose-50'
+                      : 'text-amber-700 bg-amber-50'
+                  }`}>
+                    {isVerified ? 'VERIFIED SAFE' : isCollided ? 'IMPACT DESTROYED' : safety_status}
+                  </span>
+                </div>
+
+                {maneuver_candidates.length > 0 ? (() => {
+                  const topFour = [
+                    ...maneuver_candidates.filter(c => c.passed).slice(0, 2),
+                    ...maneuver_candidates.filter(c => !c.passed).slice(0, 2),
+                  ];
+                  while (topFour.length < Math.min(4, maneuver_candidates.length)) {
+                    const nextC = maneuver_candidates.find(c => !topFour.includes(c));
+                    if (!nextC) break;
+                    topFour.push(nextC);
+                  }
+                  const radii = [74, 58, 42, 26];
+                  const ringColors = ['#4f46e5', '#0ea5e9', '#f59e0b', '#f43f5e'];
+                  const maxScale = Math.max(screening_distance_km * 1.6, ...topFour.map(c => c.resulting_d_cpa_km), 35);
+                  const activeBurn = executed_maneuver || selected_candidate || topFour[0];
+
+                  return (
+                    <>
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 my-auto py-2">
+                        <svg className="w-32 h-32 sm:w-36 sm:h-36 shrink-0" viewBox="0 0 180 180">
+                          {topFour.map((cand, idx) => {
+                            const r = radii[idx];
+                            const circ = 2 * Math.PI * r;
+                            const frac = Math.max(0.08, Math.min(0.95, cand.resulting_d_cpa_km / maxScale));
+                            const dashLen = circ * frac;
+                            const color = cand.passed ? ringColors[idx % 2] : (idx >= 2 ? ringColors[idx] : '#f43f5e');
+                            return (
+                              <g key={cand.id}>
+                                <circle cx="90" cy="90" r={r} fill="none" stroke="#f1f5f9" strokeWidth="8" />
+                                <circle
+                                  cx="90"
+                                  cy="90"
+                                  r={r}
+                                  fill="none"
+                                  stroke={color}
+                                  strokeWidth="8"
+                                  strokeLinecap="round"
+                                  strokeDasharray={`${dashLen} ${circ}`}
+                                  transform="rotate(-90 90 90)"
+                                />
+                              </g>
+                            );
+                          })}
+                          <text x="90" y="88" textAnchor="middle" fill="#0f172a" fontSize="13" fontWeight="bold" fontFamily="monospace">
+                            {activeBurn ? `${activeBurn.resulting_d_cpa_km.toFixed(1)}` : '—'}
+                          </text>
+                          <text x="90" y="102" textAnchor="middle" fill="#64748b" fontSize="8" fontFamily="monospace">
+                            km d_CPA
+                          </text>
+                        </svg>
+
+                        <div className="w-full sm:flex-1 flex flex-col gap-1.5 text-[10px] font-mono">
+                          {topFour.map((cand) => (
+                            <div key={cand.id} className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg border border-slate-100">
+                              <span className="font-bold truncate text-slate-700" title={cand.name}>
+                                {cand.direction.slice(0, 5)} {cand.delta_v_ms}m/s
+                              </span>
+                              <span className={`font-bold ${cand.passed ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {cand.resulting_d_cpa_km.toFixed(1)}km {cand.passed ? '✓' : '✗'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
+                        <span>
+                          BURN: {activeBurn ? `${activeBurn.delta_v_ms.toFixed(1)} m/s ${activeBurn.direction}` : 'STANDBY'}
+                        </span>
+                        <span className={`font-bold ${activeBurn?.passed ? 'text-indigo-600' : 'text-rose-600'}`}>
+                          CLEARANCE: {activeBurn ? `${activeBurn.resulting_d_cpa_km.toFixed(1)} km` : 'NOMINAL'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })() : (
+                  <>
+                    <div className="flex flex-col items-center justify-center text-center py-6 my-auto gap-1.5">
+                      <span className="text-xs font-mono font-bold text-emerald-600">NO BURN REQUIRED</span>
+                      <span className="text-[11px] text-slate-500">All tracked objects clear the {screening_distance_km.toFixed(1)} km threshold.</span>
+                    </div>
+                    <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
+                      <span>BURN: 0.0 m/s IDLE</span>
+                      <span className="font-bold text-emerald-600">CLEARANCE: SAFE</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* ── CARD 3: ORBITAL CONJUNCTION CATALOGUE & REAL-TIME SCREENING ── */}
+            <div className="bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between gap-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2.5">
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
+                  ORBITAL CONJUNCTION CATALOGUE & REAL-TIME SCREENING
+                </h2>
+                <span className="text-[10px] font-mono text-slate-500">
+                  {objects?.length || 1911} TRACKED OBJECTS
+                </span>
+              </div>
+
+              <div className="hidden md:grid grid-cols-12 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 font-mono">
+                <div className="col-span-2">NORAD ID</div>
+                <div className="col-span-4">OBJECT & CLASSIFICATION</div>
+                <div className="col-span-3">SAFETY STATUS</div>
+                <div className="col-span-1 text-right">RANGE</div>
+                <div className="col-span-2 text-right">ACTIONS</div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {trackedRows.map((row) => (
+                  <React.Fragment key={row.id}>
+                    {/* Desktop Row */}
+                    <div className="hidden md:grid grid-cols-12 items-center bg-[#f8fafc] hover:bg-indigo-50/40 rounded-xl px-3 py-2 transition-colors text-xs border border-slate-100/80">
+                      <div className="col-span-2 font-mono font-bold text-slate-700">
+                        {row.norad}
+                      </div>
+                      <div className="col-span-4 font-medium text-slate-800 truncate pr-2" title={row.desc}>
+                        {row.name}
+                      </div>
+                      <div className="col-span-3 flex items-center gap-2 pr-2">
+                        <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${row.statusColor}`}
+                            style={{ width: `${row.statusPct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-500 font-semibold">{row.statusLabel}</span>
+                      </div>
+                      <div className="col-span-1 text-right font-mono font-bold text-slate-700 text-[11px] whitespace-nowrap">
+                        {row.distanceLabel}
+                      </div>
+                      <div className="col-span-2 flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => {
+                            onSelectObject(row.id);
+                            onJumpToCPA();
+                          }}
+                          title="Track object & align camera"
+                          className="w-6.5 h-6.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={onOpenManeuverLab}
+                          title="Open Maneuver Planning Lab"
+                          className="w-6.5 h-6.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={handleAutonomousAvoidance}
+                          title="Execute Autonomous Avoidance Action"
+                          className="w-6.5 h-6.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <Zap className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mobile Card Row */}
+                    <div className="flex md:hidden flex-col gap-2 bg-[#f8fafc] rounded-xl px-3 py-2.5 text-xs border border-slate-100/80">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono font-bold text-[11px] text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded shrink-0">
+                            {row.norad}
+                          </span>
+                          <span className="font-semibold text-slate-800 truncate">{row.name}</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-700 text-[11px] shrink-0">
+                          {row.distanceLabel}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${row.statusColor}`}
+                              style={{ width: `${row.statusPct}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-mono text-slate-500 font-semibold shrink-0">{row.statusLabel}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => {
+                              onSelectObject(row.id);
+                              onJumpToCPA();
+                            }}
+                            title="Track object & align camera"
+                            className="w-8 h-8 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={onOpenManeuverLab}
+                            title="Open Maneuver Planning Lab"
+                            className="w-8 h-8 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={handleAutonomousAvoidance}
+                            title="Execute Autonomous Avoidance Action"
+                            className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+
+            {/* ── CARD 4: SPACECRAFT HYDRAZINE PROPELLANT PRESSURE VESSEL ── */}
+            <div className="bg-white rounded-[24px] p-4 sm:p-5 shadow-xs border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-5">
+              {/* Spacecraft Titanium Propellant Tank Illustration */}
+              <div className="relative w-36 h-28 sm:w-44 sm:h-36 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full" viewBox="0 0 200 160">
+                  {/* Top Helium Pressurization Valve Assembly */}
+                  <rect x="86" y="10" width="28" height="14" rx="3" fill="#e2e8f0" stroke="#64748b" strokeWidth="2" />
+                  <line x1="100" y1="4" x2="100" y2="10" stroke="#64748b" strokeWidth="2.5" />
+                  <circle cx="100" cy="4" r="3" fill="#4f46e5" />
+
+                  {/* Titanium Pressure Vessel Outer Shell */}
+                  <rect x="52" y="24" width="96" height="106" rx="44" fill="#f8fafc" stroke="#64748b" strokeWidth="2.5" />
+
+                  {/* Internal Hydrazine Propellant Fluid Level */}
+                  <clipPath id="tankClip">
+                    <rect x="55" y="27" width="90" height="100" rx="41" />
+                  </clipPath>
+                  <rect
+                    x="54"
+                    y={tankLiquidY}
+                    width="92"
+                    height={tankLiquidHeight + 16}
+                    fill={fuelPct < 15 ? '#ef4444' : '#3b82f6'}
+                    opacity="0.88"
+                    clipPath="url(#tankClip)"
+                  />
+                  <line x1="56" y1={tankLiquidY} x2="144" y2={tankLiquidY} stroke="#93c5fd" strokeWidth="2" />
+
+                  {/* Measurement Graduation Ticks */}
+                  <line x1="65" y1="50" x2="135" y2="50" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1="65" y1="77" x2="135" y2="77" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1="65" y1="104" x2="135" y2="104" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
+
+                  {/* Bottom RCS Thruster Feed Line & Nozzle Assembly */}
+                  <path d="M 100 130 L 100 140 L 88 152 L 112 152 L 100 140" fill="#cbd5e1" stroke="#64748b" strokeWidth="2" strokeLinejoin="round" />
+
+                  {/* Readout Badge */}
+                  <g transform="translate(100, 77)">
+                    <rect x="-24" y="-11" width="48" height="16" rx="4" fill="#0f172a" />
+                    <text x="0" y="0" textAnchor="middle" fill="#38bdf8" fontSize="8.5" fontWeight="bold" fontFamily="monospace">
+                      {fuelPct.toFixed(1)}%
+                    </text>
+                  </g>
+                </svg>
+              </div>
+
+              <div className="flex-1 flex flex-col justify-between gap-2.5 w-full">
+                <div className="border-b border-slate-100 pb-2 flex flex-wrap items-center justify-between gap-1.5">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
+                    DELTA-V PROPELLANT RESERVE
+                  </h3>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                    fuelRemaining < 10 ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50'
+                  }`}>
+                    {fuelRemaining < 1 ? 'RESERVOIR CRITICAL' : `${Math.max(1, Math.floor(fuelRemaining / 35))} BURNS REMAINING`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 text-[10px] block font-mono">PROPELLANT REMAINING</span>
+                    <span className="font-mono font-bold text-slate-900 text-sm">{fuelRemaining.toFixed(1)} / {fuelCapacity} kg</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block font-mono">SPECIFIC IMPULSE</span>
+                    <span className="font-mono font-bold text-slate-900 text-sm">Isp = 310 s (Hydrazine)</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block font-mono">
+                      {executed_maneuver ? `CONSUMED (${executed_maneuver.id})` : selected_candidate ? `EST. (${selected_candidate.id})` : 'BURN CONSUMPTION'}
+                    </span>
+                    <span className="font-mono font-bold text-indigo-600 text-sm">
+                      {(() => {
+                        const burnFuel = (executed_maneuver || selected_candidate)?.propellant_kg ?? 0;
+                        const burnPct = (burnFuel / fuelCapacity) * 100;
+                        return `${burnFuel.toFixed(2)} kg (${burnPct.toFixed(2)}%)`;
+                      })()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block font-mono">RCS SUBSYSTEM</span>
+                    <span className={`font-mono font-bold text-sm ${fuelRemaining < 1 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {fuelRemaining < 1 ? 'PROPELLANT DEPLETED' : 'ALL 4 PODS NOMINAL'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT COLUMN (5 COLS): INTERACTIVE 3D ORBITAL SIMULATION VIEWPORT ── */}
+          <div className="lg:col-span-5 flex flex-col">
+            <div className="bg-white rounded-[24px] sm:rounded-[28px] p-3.5 sm:p-5 shadow-xs border border-slate-100 flex flex-col justify-between h-full lg:min-h-[760px] relative">
+              
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                    3D ORBITAL ENVIRONMENT
+                  </h2>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    REAL-TIME LEO SIMULATION • 60 FPS ORBITAL PROPAGATION
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Live Sim Clock Quick Controls */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      onClick={handleTogglePlayPause}
+                      className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        clock?.is_running ? 'bg-amber-500 text-white shadow-2xs' : 'bg-indigo-600 text-white shadow-2xs'
+                      }`}
+                      title={clock?.is_running ? 'Pause Live Simulation' : 'Play Live Simulation'}
+                    >
+                      {clock?.is_running ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                      <span>{clock?.is_running ? 'Pause' : 'Play'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleStep(60)}
+                      disabled={isStepping}
+                      className="px-1.5 py-1 rounded text-[10px] font-mono font-bold text-slate-600 hover:bg-white hover:text-indigo-600 transition-all flex items-center gap-0.5 cursor-pointer"
+                      title="Step Forward +60s RK4"
+                    >
+                      <SkipForward className="w-3 h-3" />+1m
+                    </button>
+                    <button
+                      onClick={handleResetClock}
+                      className="p-1 rounded text-slate-500 hover:bg-white hover:text-slate-800 transition-all cursor-pointer"
+                      title="Reset Simulation Scenario"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                    {[1, 25, 100].map(spd => (
+                      <button
+                        key={spd}
+                        onClick={() => handleSpeedChange(spd)}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold transition-all cursor-pointer ${
+                          clock?.time_scale === spd ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {spd}x
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      onClick={() => setViewMode3D('orbits')}
+                      className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        viewMode3D === 'orbits' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="View 3D Orbital Trajectory Simulator"
+                    >
+                      <Compass className="w-3 h-3" />
+                      <span>3D Orbits</span>
+                    </button>
+                    <button
+                      onClick={() => setViewMode3D('globe')}
+                      className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        viewMode3D === 'globe' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="View Interactive 2D Ground Track Globe"
+                    >
+                      <Globe className="w-3 h-3" />
+                      <span>Globe</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Viewport Box */}
+              <div className="w-full my-3 h-[380px] sm:h-[500px] lg:h-[610px] rounded-2xl overflow-hidden bg-[#02050f] border border-slate-800/80 relative flex items-center justify-center shadow-inner">
+                {viewMode3D === 'orbits' ? (
+                  <div className="w-full h-full relative">
+                    <OrbitalCanvas
+                      objects={objects}
+                      sentinel={sentinel}
+                      target={target}
+                      risks={risks}
+                      selectedObjectId={selectedObjectId}
+                      onSelectObject={onSelectObject}
+                      cameraMode={cameraMode}
+                      onChangeCameraMode={onChangeCameraMode}
+                      onResetCamera={() => onChangeCameraMode('FREE')}
+                      predictedWaypoints={systemState.selected_candidate?.trajectory_waypoints}
+                      interceptWaypoints={systemState.executed_maneuver?.trajectory_waypoints}
+                      simTime={simTime}
+                      isRunning={clock?.is_running}
+                      timeScale={clock?.time_scale}
+                      theme="dark"
+                      hideControls={true}
+                    />
+
+                    {/* Top Overlay Controls: Camera Modes & Workflow Tag */}
+                    <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-auto z-10 flex flex-col gap-1.5 max-w-[calc(100%-1.25rem)] pointer-events-auto">
+                      <div className="flex flex-wrap items-center gap-1 bg-slate-900/90 backdrop-blur-md px-2 sm:px-2.5 py-1 rounded-xl shadow-xs border border-slate-700 w-fit max-w-full">
+                        <button
+                          onClick={() => onChangeCameraMode('GLOBAL')}
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                            cameraMode === 'GLOBAL' ? 'bg-[#4f46e5] text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                          }`}
+                        >
+                          🌍 Earth
+                        </button>
+                        <button
+                          onClick={() => onChangeCameraMode('FOLLOW_SENTINEL')}
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                            cameraMode === 'FOLLOW_SENTINEL' ? 'bg-[#4f46e5] text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                          }`}
+                        >
+                          🛰️ SAT-01
+                        </button>
+                        <button
+                          onClick={() => onChangeCameraMode('PROXIMITY')}
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                            cameraMode === 'PROXIMITY' ? 'bg-[#4f46e5] text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                          }`}
+                        >
+                          🎯 CPA Proximity
+                        </button>
+                      </div>
+
+                      {/* Live Status Pill */}
+                      <div className="bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/80 text-[9px] font-mono text-sky-300 flex items-center gap-1.5 w-fit max-w-full shadow-sm">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isCollided
+                            ? 'bg-rose-500 animate-ping'
+                            : isVerified
+                            ? 'bg-emerald-400'
+                            : sentinel?.status === 'MANEUVER'
+                            ? 'bg-blue-400 animate-ping'
+                            : 'bg-emerald-400 animate-pulse'
+                        }`} />
+                        <span className="truncate">
+                          {isCollided
+                            ? 'STATUS: HYPERVELOCITY COLLISION DETECTED'
+                            : isVerified
+                            ? 'STATUS: ORBITAL DEFLECTION COMPLETE (SAFE)'
+                            : `WORKFLOW: ${(sentinel?.mission_phase || sentinel?.status || 'ORBITAL_PATROL').replace(/_/g, ' ')}`}
+                        </span>
+                      </div>
+
+                      {/* Live Encounter Range & T-Minus Overlay */}
+                      {target && (
+                        <div className={`backdrop-blur-md px-2.5 py-1 rounded-lg border text-[9px] font-mono flex items-center gap-2 w-fit max-w-full shadow-sm ${
+                          isCollided
+                            ? 'bg-rose-950/90 border-rose-500 text-rose-200'
+                            : isThreatActive
+                            ? 'bg-rose-950/80 border-rose-500/80 text-rose-200'
+                            : 'bg-slate-900/80 border-slate-700 text-emerald-300'
+                        }`}>
+                          <span className="font-bold">RANGE: {currentDistDisplay}</span>
+                          <span>•</span>
+                          <span>V_REL: {closingSpeedKms.toFixed(2)} km/s</span>
+                          <span>•</span>
+                          <span className="font-bold text-amber-300">T-MINUS: {tMinusStr}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Right: Inspect CPA Zoom */}
+                    <div className="absolute bottom-2.5 sm:bottom-3 right-2.5 sm:right-3 z-10 flex items-center gap-1.5">
+                      <button
+                        onClick={onJumpToCPA}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-white" />
+                        <span>Inspect CPA</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <OriginkitGlobe
+                      speed={clock?.is_running ? 0.55 : 0.2}
+                      smoothing={8}
+                      dots={globeDotsConfig}
+                      fill="dots"
+                      scale={8}
+                      stopOnHover={true}
+                      oceanColor="#070d1e"
+                      outlineColor="#38bdf8"
+                      showOutline={true}
+                      graticuleColor="#1e293b"
+                      showGrid={true}
+                      showCountries={true}
+                      showPlaces={true}
+                      markerConfig={globeMarkerConfig}
+                      groundTracks={globeTracksConfig}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+
+                    <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-auto z-10 flex flex-col gap-1.5 pointer-events-none max-w-[calc(100%-1.25rem)]">
+                      <div className="bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-700/80 shadow-md flex items-center gap-2 text-white w-fit max-w-full">
+                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-mono text-[9px] sm:text-[10px] font-bold text-emerald-400 truncate">SAT-01 (PROTECTED ASSET)</div>
+                          <div className="font-mono text-[9px] sm:text-[10px] text-slate-300 truncate">
+                            {sat01Coords.lat}°N, {sat01Coords.lng}°E • {(sentinel?.altitude ?? 600).toFixed(1)} km • {satSpeedKms.toFixed(2)} km/s
+                          </div>
+                        </div>
+                      </div>
+
+                      {target && (
+                        <div className="bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-700/80 shadow-md flex items-center gap-2 text-white w-fit max-w-full">
+                          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-rose-500 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-mono text-[9px] sm:text-[10px] font-bold text-rose-400 truncate">
+                              {target.name} (THREAT)
+                            </div>
+                            <div className="font-mono text-[9px] sm:text-[10px] text-slate-300 truncate">
+                              {targetCoords.lat}°N, {targetCoords.lng}°E • v_rel {closingSpeedKms.toFixed(2)} km/s • CPA {Math.max(0, predictedCpaTimeS).toFixed(0)}s
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="absolute bottom-2.5 sm:bottom-3 right-2.5 sm:right-3 z-10 flex items-center gap-2">
+                      <span className="hidden sm:inline-block bg-slate-900/90 backdrop-blur-md text-[9px] font-mono text-slate-400 px-2.5 py-1.5 rounded-lg border border-slate-700/80 shadow-sm">
+                        Drag to rotate • Hover to inspect countries
+                      </span>
+                      <button
+                        onClick={() => {
+                          setViewMode3D('orbits');
+                          onJumpToCPA();
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-white" />
+                        <span>Inspect CPA</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Bottom Ephemeris Bar */}
+              <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span>EPHEMERIS: TWO-BODY RK4 SOLVER (μ = 398,600.44 km³/s²)</span>
+                </span>
+                <span>SCREENING BOUNDARY: {screening_distance_km.toFixed(1)} km</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // 2. TACTICAL ODTS HUD (AEROSPACE MILITARY HUD WHEN TOGGLED)
+  // ══════════════════════════════════════════════════════════════════════════════
+  const totalTracked = objects?.length || 48210;
+  const debrisTracked = 31495;
+  const satTracked = 16715;
+
+  return (
+    <div className="w-full h-full bg-[#02050f] text-cyan-100 font-mono flex flex-col overflow-hidden select-none relative">
+      
+      {/* ── TOP HUD HEADER BAR ── */}
+      <header className="h-11 sm:h-12 border-b border-cyan-500/20 px-3 sm:px-5 flex items-center justify-between bg-[#040915]/95 backdrop-blur-md shrink-0 z-20">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-6 h-6 rounded border border-cyan-400/40 bg-cyan-950/60 flex items-center justify-center text-cyan-400 shrink-0">
+            <Radio className="w-3.5 h-3.5 animate-pulse" />
+          </div>
+          <span className="text-xs sm:text-sm font-bold tracking-widest text-cyan-300 truncate">
+            ORBITAL DEBRIS TRACKING SYSTEM (ODTS)
+          </span>
+          <span className="text-cyan-500/60 hidden sm:inline">|</span>
+          <span className="text-[11px] text-cyan-400/80 font-bold hidden sm:inline tracking-wider">
+            ACTIVE MONITORING
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0 text-[10px] sm:text-xs">
+          {/* Switch back to Executive View */}
           <button
-            onClick={() => setMobileHudOpen(!mobileHudOpen)}
-            className="sm:hidden px-2.5 py-1 text-xs bg-cyan-950/80 border border-cyan-500/40 rounded text-cyan-300"
+            onClick={() => setDashboardViewMode('EXECUTIVE')}
+            className="flex items-center gap-1.5 bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 border border-indigo-500/40 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+            title="Return to Executive Dashboard View"
           >
-            {mobileHudOpen ? 'CLOSE HUD' : 'HUD PANELS'}
+            <LayoutDashboard className="w-3 h-3" />
+            <span>Executive View</span>
           </button>
+
+          <div className="hidden lg:flex items-center gap-2 text-cyan-400/80">
+            <span className="text-cyan-600">EPOCH:</span>
+            <span className="font-semibold text-cyan-200">{epochString}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-600 hidden sm:inline">SYSTEM STATUS:</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider ${
+              isCollided
+                ? 'bg-rose-950 border border-rose-500 text-rose-300 animate-pulse'
+                : isVerified
+                ? 'bg-emerald-950 border border-emerald-500 text-emerald-300'
+                : isThreatActive
+                ? 'bg-amber-950 border border-amber-500 text-amber-300'
+                : 'bg-cyan-950 border border-cyan-500 text-cyan-300'
+            }`}>
+              {isCollided ? 'COLLISION' : isVerified ? 'VERIFIED' : safety_status}
+            </span>
+          </div>
         </div>
       </header>
 
-      {/* ── 3. OVERLAID SCI-FI HUD PANELS CONTAINER (Pointer-events passthrough to 3D globe) ── */}
-      <div className={`absolute inset-0 pt-16 pb-3 px-3 sm:px-5 pointer-events-none z-10 flex flex-col justify-between ${
-        mobileHudOpen ? 'overflow-y-auto pointer-events-auto bg-[#02050f]/80 sm:bg-transparent sm:pointer-events-none' : ''
-      }`}>
-        
-        {/* TOP ROW: LEFT TELEMETRY + RIGHT CONJUNCTION WARNING */}
-        <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-          
-          {/* ── LEFT HUD CARDS COLUMN ── */}
-          <div className="w-full sm:w-72 lg:w-80 flex flex-col gap-2.5 pointer-events-auto">
-            
-            {/* CARD 1: LIVE TRACKING */}
-            <div className="bg-[#071322]/85 backdrop-blur-md rounded-xl p-3 border border-cyan-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-1.5 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                  <span className="text-[11px] font-bold tracking-wider text-cyan-200">LIVE TRACKING</span>
-                </div>
-                <Radio className="w-3.5 h-3.5 text-cyan-400" />
+      {/* ── MAIN BODY: 3D VIEWPORT WITH HUD OVERLAYS ── */}
+      <div className="flex-1 min-h-0 relative w-full h-full overflow-hidden">
+        {/* Full-bleed 3D Three.js Orbital Canvas */}
+        <div className="absolute inset-0 z-0">
+          <OrbitalCanvas
+            objects={objects}
+            sentinel={sentinel}
+            target={target}
+            risks={risks}
+            selectedObjectId={selectedObjectId}
+            onSelectObject={onSelectObject}
+            cameraMode={cameraMode}
+            onChangeCameraMode={onChangeCameraMode}
+            onResetCamera={() => onChangeCameraMode('FREE')}
+            predictedWaypoints={systemState.selected_candidate?.trajectory_waypoints}
+            interceptWaypoints={systemState.executed_maneuver?.trajectory_waypoints}
+            simTime={simTime}
+            isRunning={isRunning}
+            timeScale={clock?.time_scale}
+            theme="dark"
+            hideControls={true}
+          />
+        </div>
+
+        {/* TOP LEFT HUD: LIVE TRACKING & THREAT COUNTERS */}
+        <div className="absolute top-3 left-3 z-10 flex flex-col gap-2.5 max-w-[210px] sm:max-w-[240px] pointer-events-auto">
+          {/* Live Tracking Card */}
+          <div className="bg-[#050c18]/85 backdrop-blur-md border border-cyan-500/25 rounded-lg p-2.5 text-[11px] shadow-lg">
+            <div className="flex items-center justify-between text-cyan-400 font-bold border-b border-cyan-500/20 pb-1.5 mb-1.5 text-[10px] tracking-wider">
+              <span>LIVE TRACKING</span>
+              <Activity className="w-3 h-3 text-cyan-400" />
+            </div>
+            <div className="flex flex-col gap-1 text-[10px]">
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span>Total</span>
+                </span>
+                <span className="font-bold text-cyan-200">{totalTracked.toLocaleString()}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-[#030a14]/60 p-1.5 rounded border border-cyan-500/15">
-                  <div className="text-[9px] text-slate-400">Total</div>
-                  <div className="text-xs font-bold text-cyan-300 mt-0.5">48,210</div>
-                </div>
-                <div className="bg-[#030a14]/60 p-1.5 rounded border border-cyan-500/15">
-                  <div className="text-[9px] text-amber-400/80">Debris</div>
-                  <div className="text-xs font-bold text-amber-300 mt-0.5">31,495</div>
-                </div>
-                <div className="bg-[#030a14]/60 p-1.5 rounded border border-cyan-500/15">
-                  <div className="text-[9px] text-sky-400/80">Satellites</div>
-                  <div className="text-xs font-bold text-sky-300 mt-0.5">16,715</div>
-                </div>
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>Debris</span>
+                </span>
+                <span className="font-bold text-amber-200">{debrisTracked.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>Satellites</span>
+                </span>
+                <span className="font-bold text-emerald-200">{satTracked.toLocaleString()}</span>
               </div>
             </div>
+          </div>
 
-            {/* CARD 2: THREAT ALERTS SUMMARY */}
-            <div className="bg-[#071322]/85 backdrop-blur-md rounded-xl p-3 border border-cyan-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-1.5 mb-2">
-                <div className="flex items-center gap-1.5 text-rose-300">
-                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-                  <span className="text-[11px] font-bold tracking-wider">THREAT ALERTS</span>
-                </div>
-                <span className="text-[10px] text-rose-400 font-bold px-1.5 py-0.2 rounded bg-rose-950/60 border border-rose-500/30">
-                  {threatActive ? 'ACTIVE CONJUNCTION' : 'SAFE PASS'}
+          {/* Threat Alerts Summary Card */}
+          <div className="bg-[#050c18]/85 backdrop-blur-md border border-cyan-500/25 rounded-lg p-2.5 text-[11px] shadow-lg">
+            <div className="flex items-center justify-between text-cyan-400 font-bold border-b border-cyan-500/20 pb-1.5 mb-1.5 text-[10px] tracking-wider">
+              <span>THREAT ALERTS</span>
+              <ShieldAlert className="w-3 h-3 text-rose-400" />
+            </div>
+            <div className="flex flex-col gap-1 text-[10px]">
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                  <span>Critical (CPA &lt; 25km)</span>
+                </span>
+                <span className="font-bold text-rose-300">{isThreatActive ? '1' : '0'}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>Monitored (&lt; 80km)</span>
+                </span>
+                <span className="font-bold text-amber-200">3</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>Cleared</span>
+                </span>
+                <span className="font-bold text-emerald-200">16,712</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* TOP RIGHT HUD: COLLISION WARNING CARD */}
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 max-w-[240px] sm:max-w-[280px] pointer-events-auto">
+          <div className={`backdrop-blur-md border rounded-lg p-3 text-[11px] shadow-xl ${
+            isCollided
+              ? 'bg-rose-950/90 border-rose-500 text-rose-100'
+              : isVerified
+              ? 'bg-emerald-950/85 border-emerald-500/40 text-emerald-100'
+              : 'bg-[#150a12]/90 border-rose-500/50 text-rose-200'
+          }`}>
+            <div className="flex items-center justify-between border-b border-rose-500/30 pb-1.5 mb-2">
+              <span className="font-black text-rose-400 tracking-wider flex items-center gap-1 text-[11px]">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                <span>WARNING</span>
+              </span>
+              <span className="text-[9px] text-rose-400/80 font-mono">
+                EVENT ID: 49127
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5 text-[10px]">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">COLLISION PROBABILITY:</span>
+                <span className={`font-black ${isCollided ? 'text-rose-400' : isVerified ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {isCollided ? '100%' : isVerified ? '0.001%' : 'HIGH 98.2%'}
                 </span>
               </div>
-              <div className="flex flex-col gap-1.5 text-[11px]">
-                <div className="flex justify-between items-center text-slate-300">
-                  <span className="text-slate-400">Screening Radius:</span>
-                  <span className="text-cyan-300 font-bold">{screening_distance_km.toFixed(1)} km</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-300">
-                  <span className="text-slate-400">Relative Velocity:</span>
-                  <span className="text-amber-300 font-bold">14.28 km/s</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-300">
-                  <span className="text-slate-400">Current Distance:</span>
-                  <span className={`font-bold ${threatActive ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
-                    {currentDistDisplay}
-                  </span>
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">T-MINUS CPA:</span>
+                <span className="font-bold text-amber-300 font-mono">{tMinusStr}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">MIN DISTANCE (d_CPA):</span>
+                <span className="font-bold text-cyan-300 font-mono">
+                  {isCollided ? '0.0 m (COLLISION)' : isVerified ? `${predictedCpaKm.toFixed(1)} km (SAFE)` : `${(predictedCpaKm * 1000).toFixed(0)}m`}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">CURRENT RANGE:</span>
+                <span className="font-bold text-rose-300 font-mono">{currentDistDisplay}</span>
               </div>
             </div>
 
-            {/* CARD 3: THREAT ALERTS LIST */}
-            <div className="bg-[#071322]/85 backdrop-blur-md rounded-xl p-3 border border-cyan-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-              <div className="text-[10px] font-bold text-slate-400 tracking-wider mb-2 uppercase flex justify-between">
-                <span>CONJUNCTION CATALOG</span>
-                <span className="text-cyan-400">LEO ORBIT</span>
-              </div>
-              <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto no-scrollbar">
-                
-                {/* Threat item 1 */}
-                <div
-                  onClick={() => {
-                    if (target) onSelectObject(target.id);
-                    onChangeCameraMode('COLLISION');
-                  }}
-                  className={`p-2 rounded border cursor-pointer transition-all flex items-center justify-between text-[11px] ${
-                    threatActive
-                      ? 'bg-rose-950/50 border-rose-500/40 hover:bg-rose-900/50 text-rose-200'
-                      : 'bg-cyan-950/40 border-cyan-500/20 text-cyan-200'
-                  }`}
+            {/* Execute Avoidance Button in Tactical HUD */}
+            <div className="mt-3 pt-2 border-t border-rose-500/20 flex flex-col gap-1.5">
+              <button
+                onClick={handleAutonomousAvoidance}
+                disabled={isAutoExecuting || isVerified}
+                className={`w-full py-1.5 rounded text-[10px] font-black tracking-wider shadow-md transition-all cursor-pointer ${
+                  isVerified
+                    ? 'bg-emerald-600 text-white'
+                    : isCollided
+                    ? 'bg-rose-700 text-white'
+                    : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                }`}
+              >
+                {isAutoExecuting
+                  ? 'FIRING THRUSTERS...'
+                  : isVerified
+                  ? 'AVOIDANCE VERIFIED SAFE ✓'
+                  : isCollided
+                  ? 'COLLISION OCCURRED'
+                  : 'EXECUTE AVOIDANCE MANEUVER'}
+              </button>
+
+              <button
+                onClick={handleResetClock}
+                className="w-full py-1 rounded text-[9px] font-semibold bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer"
+              >
+                RESET SIMULATION SCENARIO
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM HUD DOCK */}
+        <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-auto">
+          <div className="bg-[#040915]/90 backdrop-blur-md border border-cyan-500/30 rounded-xl p-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-cyan-400 font-bold text-[10px] tracking-wider">TACTICAL CONTROLS:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleTogglePlayPause}
+                  className="bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 px-2 py-1 rounded text-[10px] font-bold border border-cyan-500/30 cursor-pointer"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${threatActive ? 'bg-rose-500 animate-ping' : 'bg-emerald-400'}`} />
-                    <div>
-                      <div className="font-bold flex items-center gap-1">
-                        <span>DEBRIS #8871</span>
-                        <span className="text-[9px] opacity-75">49127</span>
-                      </div>
-                      <div className="text-[9px] text-slate-400">SAT-A34 'SENTINEL' VECTOR</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-rose-400">{cpaDistanceKm.toFixed(1)} km</div>
-                    <div className="text-[9px] text-slate-400">{tMinusStr}</div>
-                  </div>
-                </div>
-
-                {/* Secondary pass items */}
-                <div className="p-1.5 rounded bg-[#030a14]/60 border border-cyan-500/15 flex items-center justify-between text-[10px] text-slate-300">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span>DEBRIS #8872</span>
-                  </div>
-                  <span className="text-slate-400">48.2 km • SAFE PASS</span>
-                </div>
-
-                <div className="p-1.5 rounded bg-[#030a14]/60 border border-cyan-500/15 flex items-center justify-between text-[10px] text-slate-300">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                    <span>SAT-AS158 'STSOTINEL'</span>
-                  </div>
-                  <span className="text-slate-400">112.5 km • NOMINAL</span>
-                </div>
+                  {isRunning ? 'PAUSE' : 'RESUME'}
+                </button>
+                <button
+                  onClick={() => onChangeCameraMode('FOLLOW_SENTINEL')}
+                  className="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 px-2 py-1 rounded text-[10px] font-bold border border-cyan-500/20 cursor-pointer"
+                >
+                  LOCK SAT-01
+                </button>
+                <button
+                  onClick={() => onChangeCameraMode('PROXIMITY')}
+                  className="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 px-2 py-1 rounded text-[10px] font-bold border border-cyan-500/20 cursor-pointer"
+                >
+                  LOCK CPA
+                </button>
               </div>
             </div>
 
+            <div className="flex items-center gap-4 text-[10px] text-cyan-400/80 font-mono">
+              <span>PROPAGATION: TWO-BODY RK4</span>
+              <span>•</span>
+              <span>SCREENING: 25.0 km</span>
+              <span>•</span>
+              <span className="text-cyan-200 font-bold">T+{simTime.toFixed(1)}s</span>
+            </div>
           </div>
-
-          {/* ── RIGHT HUD CARD: CONJUNCTION WARNING & PROBABILITY TREND ── */}
-          <div className="w-full sm:w-80 lg:w-96 flex flex-col gap-2.5 pointer-events-auto">
-            
-            {/* WARNING & COLLISION PROBABILITY HUD */}
-            <div className={`backdrop-blur-md rounded-xl p-3.5 border shadow-[0_8px_32px_rgba(0,0,0,0.6)] ${
-              threatActive
-                ? 'bg-[#18090d]/90 border-rose-500/50 shadow-rose-950/40'
-                : 'bg-[#071322]/90 border-emerald-500/40 shadow-emerald-950/30'
-            }`}>
-              
-              {/* Header Badge */}
-              <div className="flex items-center justify-between border-b pb-2 mb-2.5 border-white/10">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className={`w-4 h-4 ${threatActive ? 'text-rose-400 animate-bounce' : 'text-emerald-400'}`} />
-                  <span className={`text-xs font-black tracking-wider ${threatActive ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {threatActive ? 'WARNING • HIGH CONJUNCTION RISK' : 'CONJUNCTION STATUS: SAFE'}
-                  </span>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                  threatActive ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                }`}>
-                  {threatActive ? 'HIGH RISK' : 'NOMINAL'}
-                </span>
-              </div>
-
-              {/* Collision Probability Score */}
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="text-[11px] text-slate-300">COLLISION PROBABILITY:</span>
-                <span className={`text-lg sm:text-xl font-black ${
-                  threatActive ? 'text-rose-400 animate-pulse' : 'text-emerald-400'
-                }`}>
-                  {collisionProbabilityPct.toFixed(1)}%
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-3 font-mono">
-                <span>EVENT ID: 49127</span>
-                <span className={threatActive ? 'text-rose-300 font-bold' : 'text-slate-300'}>
-                  T-MINUS: {tMinusStr}
-                </span>
-              </div>
-
-              {/* PROBABILITY TREND MINI-GRAPH */}
-              <div className="mb-3 bg-[#030712]/70 p-2 rounded-lg border border-white/10">
-                <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1">
-                  <span>PROBABILITY TREND</span>
-                  <span className={threatActive ? 'text-rose-400 font-bold' : 'text-emerald-400'}>
-                    {threatActive ? 'RISING (98.2%)' : '0.0001% (LOW)'}
-                  </span>
-                </div>
-                
-                {/* SVG Curve */}
-                <div className="w-full h-14 relative">
-                  <svg viewBox="0 0 200 50" className="w-full h-full overflow-visible">
-                    <defs>
-                      <linearGradient id="probGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={threatActive ? '#ef4444' : '#10b981'} stopOpacity="0.5" />
-                        <stop offset="100%" stopColor={threatActive ? '#ef4444' : '#10b981'} stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    {threatActive ? (
-                      <>
-                        <path
-                          d="M 0,45 Q 60,42 110,32 T 160,18 L 200,6 L 200,50 L 0,50 Z"
-                          fill="url(#probGrad)"
-                        />
-                        <path
-                          d="M 0,45 Q 60,42 110,32 T 160,18 L 200,6"
-                          fill="none"
-                          stroke="#ef4444"
-                          strokeWidth="2.5"
-                        />
-                        <circle cx="200" cy="6" r="3" fill="#ef4444" className="animate-ping" />
-                      </>
-                    ) : (
-                      <>
-                        <path
-                          d="M 0,48 L 200,48 L 200,50 L 0,50 Z"
-                          fill="url(#probGrad)"
-                        />
-                        <path
-                          d="M 0,48 L 200,48"
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="2"
-                        />
-                      </>
-                    )}
-                  </svg>
-                </div>
-              </div>
-
-              {/* MIN DISTANCE CURVE */}
-              <div className="mb-3 bg-[#030712]/70 p-2 rounded-lg border border-white/10">
-                <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1">
-                  <span>MIN DISTANCE AT CPA</span>
-                  <span className="text-cyan-300 font-bold">{cpaDistanceKm < 1 ? `${(cpaDistanceKm * 1000).toFixed(0)}m` : `${cpaDistanceKm.toFixed(1)} km`}</span>
-                </div>
-                <div className="w-full h-10 relative">
-                  <svg viewBox="0 0 200 40" className="w-full h-full overflow-visible">
-                    <path
-                      d="M 0,8 Q 80,12 140,34 T 200,32"
-                      fill="none"
-                      stroke="#00f0ff"
-                      strokeWidth="2"
-                    />
-                    <circle cx="140" cy="34" r="2.5" fill="#00f0ff" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* AVOIDANCE ACTIONS & BURN BUTTON / COLLISION NOTIFICATION */}
-              {isCollided ? (
-                <div className="flex flex-col gap-2">
-                  <div className="p-2.5 rounded-lg bg-rose-950/90 border border-rose-500 text-[11px] text-rose-300 text-center font-bold animate-pulse shadow-[0_0_18px_rgba(239,68,68,0.5)]">
-                    💥 COLLISION IMPACT CONFIRMED AT T+20.0s! CATASTROPHIC DESTRUCTION
-                  </div>
-                  <button
-                    onClick={() => handleSelectScenario('Scenario 2: Avoidable Close Approach')}
-                    className="w-full py-2.5 px-3 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white rounded-lg text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_18px_rgba(245,158,11,0.5)] transition-all"
-                  >
-                    <RotateCcw className="w-4 h-4 text-white" />
-                    <span>REPLAY CLOSE APPROACH ENCOUNTER</span>
-                  </button>
-                </div>
-              ) : isScenario2 && !isExecuted ? (
-                <div className="flex flex-col gap-2">
-                  <div className="text-[10px] text-slate-300 flex justify-between">
-                    <span>TIME TO IMPACT:</span>
-                    <span className="text-rose-400 font-bold animate-pulse">{tMinusStr} (CLOSING AT 8.12 km/s)</span>
-                  </div>
-                  <button
-                    onClick={handleExecuteBurn}
-                    disabled={isAutoExecuting}
-                    className="w-full py-2.5 px-3 bg-gradient-to-r from-rose-600 via-indigo-600 to-cyan-500 hover:from-rose-500 hover:to-cyan-400 text-white rounded-lg text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(244,63,94,0.6)] transition-all active:scale-98"
-                  >
-                    <Rocket className="w-4 h-4 text-white" />
-                    <span>{isAutoExecuting ? 'FIRING THRUSTERS...' : 'EXECUTE AVOIDANCE MANEUVER'}</span>
-                  </button>
-                </div>
-              ) : isScenario2 && isExecuted ? (
-                <div className="flex flex-col gap-2">
-                  <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-[11px] text-emerald-300 text-center font-bold">
-                    ✓ AVOIDANCE MANEUVER EXECUTED • CPA EXPANDED TO {cpaDistanceKm.toFixed(1)} KM (SAFE PASS VERIFIED)
-                  </div>
-                  <button
-                    onClick={() => handleSelectScenario('Scenario 2: Avoidable Close Approach')}
-                    className="w-full py-2 px-3 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>REPLAY ENCOUNTER</span>
-                  </button>
-                </div>
-              ) : isScenario3 ? (
-                <div className="flex flex-col gap-2">
-                  <div className="p-2.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-[10px] text-rose-300 leading-tight">
-                    <div className="font-bold text-rose-400 mb-1">CRITICAL ALERT: INSUFFICIENT PROPELLANT</div>
-                    Approaching collision at 8.12 km/s. Propellant depleted (0.2 kg). Collision unavoidable.
-                  </div>
-                  <button
-                    onClick={() => handleSelectScenario('Scenario 3: No Acceptable Maneuver')}
-                    className="w-full py-2 px-3 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-500/30 text-rose-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>REPLAY CRITICAL SCENARIO</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-300 text-center">
-                  All orbital assets in clear flight envelope. No conjunction vectors detected within screening volume.
-                </div>
-              )}
-
-            </div>
-
-            {/* HYDRAZINE PROPELLANT STATUS */}
-            <div className="bg-[#071322]/85 backdrop-blur-md rounded-xl p-2.5 border border-cyan-500/30 text-[11px] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                <span className="text-slate-300">Hydrazine Propellant:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-20 bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${fuelPct < 15 ? 'bg-rose-500' : 'bg-cyan-400'}`}
-                    style={{ width: `${fuelPct}%` }}
-                  />
-                </div>
-                <span className="font-bold text-cyan-200">{fuelRemaining.toFixed(1)} kg</span>
-              </div>
-            </div>
-
-          </div>
-
         </div>
-
-        {/* ── 4. BOTTOM AEROSPACE HUD PANELS (DENSITY MAP | SHELL RADAR | TIMELINE & PLAYBACK) ── */}
-        <div className="w-full mt-auto pt-2">
-          
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 pointer-events-auto">
-            
-            {/* PANEL 1: DEBRIS FIELD DENSITY (4 cols) */}
-            <div className="md:col-span-4 bg-[#071322]/85 backdrop-blur-md rounded-xl p-3 border border-cyan-500/30 shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-1.5 mb-2">
-                <span className="text-[10px] font-bold tracking-wider text-cyan-200">DEBRIS FIELD DENSITY</span>
-                <span className="text-[9px] text-slate-400 font-mono">EQUIRECTANGULAR PROJECTION</span>
-              </div>
-              
-              {/* 2D Equirectangular Earth Map with Glowing Density Clusters */}
-              <div className="w-full h-24 relative bg-[#020713] rounded border border-cyan-500/20 overflow-hidden">
-                
-                {/* World Map Outline SVG */}
-                <svg viewBox="0 0 360 180" className="w-full h-full opacity-40">
-                  {/* Continents rough paths */}
-                  <path d="M 60,40 L 90,35 L 120,45 L 110,70 L 80,75 Z" fill="#0d2847" />
-                  <path d="M 90,85 L 120,80 L 130,130 L 110,140 Z" fill="#0d2847" />
-                  <path d="M 170,30 L 230,25 L 250,55 L 200,60 Z" fill="#0d2847" />
-                  <path d="M 180,70 L 220,65 L 210,110 L 190,110 Z" fill="#0d2847" />
-                  <path d="M 230,35 L 300,30 L 320,60 L 270,75 Z" fill="#0d2847" />
-                  <path d="M 280,100 L 320,95 L 310,130 L 280,125 Z" fill="#0d2847" />
-                </svg>
-
-                {/* Glowing Heatmap Spots */}
-                <div className="absolute top-[28%] left-[24%] w-10 h-10 rounded-full bg-amber-500/30 blur-sm pointer-events-none" />
-                <div className="absolute top-[25%] left-[52%] w-12 h-12 rounded-full bg-rose-500/35 blur-sm pointer-events-none" />
-                <div className="absolute top-[32%] left-[78%] w-14 h-14 rounded-full bg-amber-500/35 blur-sm pointer-events-none" />
-                <div className="absolute top-[50%] left-[82%] w-8 h-8 rounded-full bg-cyan-500/25 blur-sm pointer-events-none" />
-
-                {/* Satellite sub-track dot */}
-                <div className="absolute top-[35%] left-[45%] w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_8px_#00f0ff] animate-ping" />
-                <div className="absolute top-[35%] left-[45%] w-2 h-2 rounded-full bg-cyan-300" />
-                <div className="absolute bottom-1 right-2 text-[9px] text-cyan-400/80 font-mono">
-                  DENSITY PEAK: 800-950 KM
-                </div>
-              </div>
-            </div>
-
-            {/* PANEL 2: ORBITAL SHELL ANALYSIS (4 cols) */}
-            <div className="md:col-span-4 bg-[#071322]/85 backdrop-blur-md rounded-xl p-3 border border-cyan-500/30 shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-1.5 mb-2">
-                <span className="text-[10px] font-bold tracking-wider text-cyan-200">ORBITAL SHELL ANALYSIS</span>
-                <span className="text-[9px] text-cyan-400 font-mono">LEO / MEO / GEO</span>
-              </div>
-              
-              <div className="flex items-center justify-between gap-3 h-24">
-                
-                {/* Circular Polar Radar Graphic */}
-                <div className="w-24 h-24 relative flex items-center justify-center shrink-0">
-                  <div className="absolute w-24 h-24 rounded-full border border-cyan-500/20" />
-                  <div className="absolute w-18 h-18 rounded-full border border-cyan-500/30 border-dashed" />
-                  <div className="absolute w-12 h-12 rounded-full border border-cyan-500/40" />
-                  <div className="absolute w-6 h-6 rounded-full bg-cyan-400/30 border border-cyan-400 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
-                  </div>
-                  {/* Radar sweep hand */}
-                  <div className="absolute w-12 h-0.5 bg-gradient-to-r from-transparent to-cyan-400 origin-left left-12 animate-spin" />
-                </div>
-
-                {/* Shell Altitude Histogram Bars */}
-                <div className="flex-1 flex flex-col justify-between h-full py-1 text-[9px]">
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-0.5">
-                      <span>LEO (200-2,000 km)</span>
-                      <span className="text-cyan-300 font-bold">84%</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div className="h-full bg-cyan-400 rounded-full" style={{ width: '84%' }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-0.5">
-                      <span>MEO (2,000-35,786 km)</span>
-                      <span className="text-amber-300 font-bold">11%</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-400 rounded-full" style={{ width: '11%' }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-0.5">
-                      <span>GEO (35,786 km)</span>
-                      <span className="text-purple-300 font-bold">5%</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-400 rounded-full" style={{ width: '5%' }} />
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* PANEL 3: EVENT TIMELINE & PLAYBACK CONTROLS (4 cols) */}
-            <div className="md:col-span-4 bg-[#071322]/85 backdrop-blur-md rounded-xl p-3 border border-cyan-500/30 shadow-[0_4px_24px_rgba(0,0,0,0.6)] flex flex-col justify-between">
-              
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-1.5 mb-1.5">
-                <span className="text-[10px] font-bold tracking-wider text-cyan-200">EVENT TIMELINE & PLAYBACK</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-cyan-400 font-mono">T+{simTime.toFixed(0)}s</span>
-                  <span className="text-[9px] text-slate-400">({timeScale}x)</span>
-                </div>
-              </div>
-
-              {/* Waveform / Timeline with CPA spike */}
-              <div className="w-full h-8 relative flex items-center mb-1 bg-[#030712]/60 rounded px-2 border border-cyan-500/15">
-                {/* Waveform bars */}
-                <div className="flex items-center justify-between w-full h-full gap-0.5">
-                  {Array.from({ length: 48 }).map((_, i) => {
-                    const isCpaSpike = i >= 26 && i <= 30;
-                    const h = isCpaSpike ? 24 : 4 + Math.sin(i * 0.4) * 5 + (i % 3) * 3;
-                    return (
-                      <div
-                        key={i}
-                        className={`w-0.5 rounded-full transition-all ${
-                          isCpaSpike
-                            ? 'bg-rose-500 shadow-[0_0_6px_#ef4444]'
-                            : i < 20
-                            ? 'bg-cyan-500/60'
-                            : 'bg-cyan-500/30'
-                        }`}
-                        style={{ height: `${h}px` }}
-                      />
-                    );
-                  })}
-                </div>
-                {/* Current playhead marker */}
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_8px_white]"
-                  style={{ left: `${Math.min(95, Math.max(5, (simTime % 300) / 3))}%` }}
-                />
-              </div>
-
-              {/* Interactive Play / Pause / Step Controls */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  {/* Play / Pause big glowing circle button */}
-                  <button
-                    onClick={handleTogglePlay}
-                    className="w-8 h-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center justify-center cursor-pointer shadow-[0_0_12px_#00f0ff] transition-transform active:scale-95"
-                    title={isRunning ? 'Pause Simulation' : 'Run Simulation'}
-                  >
-                    {isRunning ? <Pause className="w-4 h-4 fill-slate-950" /> : <Play className="w-4 h-4 fill-slate-950 ml-0.5" />}
-                  </button>
-
-                  {/* Step +10s */}
-                  <button
-                    onClick={() => handleStep(10)}
-                    className="px-2 py-1 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 rounded text-[10px] font-bold text-cyan-300 cursor-pointer"
-                    title="Step forward 10 seconds"
-                  >
-                    +10s
-                  </button>
-
-                  {/* Step +60s */}
-                  <button
-                    onClick={() => handleStep(60)}
-                    className="px-2 py-1 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 rounded text-[10px] font-bold text-cyan-300 cursor-pointer"
-                    title="Step forward 60 seconds"
-                  >
-                    +60s
-                  </button>
-
-                  {/* Reset Clock */}
-                  <button
-                    onClick={handleReset}
-                    className="p-1.5 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 rounded text-cyan-400 cursor-pointer"
-                    title="Reset Simulation Clock"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Speed Multiplier Pills */}
-                <div className="flex items-center gap-1 text-[9px]">
-                  {[1, 5, 25, 60].map(s => (
-                    <button
-                      key={s}
-                      onClick={() => api.setSpeed(s)}
-                      className={`px-1.5 py-0.5 rounded cursor-pointer ${
-                        timeScale === s
-                          ? 'bg-cyan-500 text-slate-950 font-bold'
-                          : 'text-slate-400 hover:text-cyan-200'
-                      }`}
-                    >
-                      {s}x
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
       </div>
-
     </div>
   );
 };
+
+export default MissionControl;

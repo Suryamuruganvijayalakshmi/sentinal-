@@ -79,47 +79,46 @@ function rk4Step(
 class StandaloneSimulation {
   private state: SystemState;
   private lastWallTime: number = performance.now();
-  private maneuverExecSimTime: number = 0;
+  private sentinelOrbitAngle: number = 0.0;
+  private encounterElapsedS: number = 0.0;
+  private isConjunctionScenario: boolean = true;
+  private maneuverExecSimTime: number = 0.0;
+  private objectPhases: Map<string, { r: number; inc: number; omega: number; phase0: number }> = new Map();
 
   constructor() {
     this.state = deepClone(scenario2Json as unknown as SystemState);
+    this.initCatalogOrbits();
     this.initCloseApproach(true);
   }
 
+  private initCatalogOrbits(): void {
+    const list = this.state.objects || [];
+    list.forEach((obj, idx) => {
+      if (obj.id === 'SAT-01') return;
+      const r = Math.sqrt(obj.position_x ** 2 + obj.position_y ** 2 + obj.position_z ** 2) || (6950 + (idx % 8) * 45);
+      const inc = ((obj.inclination || (28.5 + (idx % 6) * 12)) * Math.PI) / 180;
+      const period = obj.orbital_period || (5600 + (idx % 10) * 35);
+      const omega = (2.0 * Math.PI) / (period / 96.0);
+      const phase0 = Math.atan2(obj.position_y, obj.position_x) || (idx * 0.28);
+      this.objectPhases.set(obj.id, { r, inc, omega, phase0 });
+    });
+  }
+
   private initCloseApproach(canAvoid: boolean): void {
-    const R = 6978.137;
-    const THETA_SPAN = (45.0 * Math.PI) / 180; // 45° visible arc traverse across orbit
-    const inc = (65.0 * Math.PI) / 180;
+    this.isConjunctionScenario = true;
+    this.encounterElapsedS = 0.0;
+    this.state.clock.sim_time = 0.0;
+    this.state.clock.mission_elapsed_time_s = 0.0;
+    this.state.clock.is_running = true;
+    this.state.clock.time_scale = 1.0;
+    this.state.executed_maneuver = null;
+    this.state.safety_status = 'WARNING';
+    this.maneuverExecSimTime = 0;
 
-    // Sentinel at t=0 (starts 45° back on equatorial orbit)
-    const theta_s = -THETA_SPAN;
-    const pos_s0 = [R * Math.cos(theta_s), R * Math.sin(theta_s), 0.0];
-    const vel_s0 = [-7.558 * Math.sin(theta_s), 7.558 * Math.cos(theta_s), 0.0];
-
-    // Debris at t=0 (starts 45° back on 65° inclined plane)
-    const theta_d = -THETA_SPAN;
-    const pos_d0 = [
-      R * Math.cos(theta_d),
-      R * Math.sin(theta_d) * Math.cos(inc),
-      R * Math.sin(theta_d) * Math.sin(inc)
-    ];
-    const vel_d0 = [
-      -7.558 * Math.sin(theta_d),
-      7.558 * Math.cos(theta_d) * Math.cos(inc),
-      7.558 * Math.cos(theta_d) * Math.sin(inc)
-    ];
-
-    const sent = this.state.sentinel || this.state.objects[0];
+    const sent = this.state.sentinel || this.state.objects.find(o => o.id === 'SAT-01');
     if (sent) {
       sent.id = 'SAT-01';
       sent.name = "SAT-A34 'SENTINEL'";
-      sent.position_x = pos_s0[0];
-      sent.position_y = pos_s0[1];
-      sent.position_z = pos_s0[2];
-      sent.velocity_x = vel_s0[0];
-      sent.velocity_y = vel_s0[1];
-      sent.velocity_z = vel_s0[2];
-      sent.altitude = 600.0;
       sent.status = 'CONVERGING_APPROACH';
       sent.health_status = 'HEALTHY';
       sent.fuel_kg = canAvoid ? 148.7 : 0.2;
@@ -132,39 +131,13 @@ class StandaloneSimulation {
     if (tgt) {
       tgt.id = 'DEBRIS-8871';
       tgt.name = 'DEBRIS #8871 (Cosmos-1408)';
-      tgt.position_x = pos_d0[0];
-      tgt.position_y = pos_d0[1];
-      tgt.position_z = pos_d0[2];
-      tgt.velocity_x = vel_d0[0];
-      tgt.velocity_y = vel_d0[1];
-      tgt.velocity_z = vel_d0[2];
-      tgt.altitude = 600.0;
       tgt.status = 'COLLISION_VECTOR';
       tgt.health_status = 'CRITICAL';
       this.state.target = tgt;
     }
 
-    const sObj = this.state.objects.find(o => o.id === sent?.id);
-    if (sObj && sent) Object.assign(sObj, sent);
-    const tObj = this.state.objects.find(o => o.id === tgt?.id);
-    if (tObj && tgt) Object.assign(tObj, tgt);
-
-    this.state.clock.sim_time = 0.0;
-    this.state.clock.mission_elapsed_time_s = 0.0;
-    this.state.clock.is_running = true;
-    this.state.clock.time_scale = 1.0;
-    this.state.executed_maneuver = null;
-    this.state.safety_status = 'WARNING';
-    this.maneuverExecSimTime = 0;
-
-    const initDist = Math.sqrt(
-      (pos_d0[0] - pos_s0[0]) ** 2 +
-      (pos_d0[1] - pos_s0[1]) ** 2 +
-      (pos_d0[2] - pos_s0[2]) ** 2
-    );
-
     if (this.state.risks && this.state.risks.length > 0) {
-      this.state.risks[0].current_distance_km = Number(initDist.toFixed(1));
+      this.state.risks[0].current_distance_km = 244.0;
       this.state.risks[0].cpa_time_s = 20.0;
       this.state.risks[0].cpa_distance_km = 0.0;
       this.state.risks[0].relative_speed_kms = 8.12;
@@ -178,7 +151,7 @@ class StandaloneSimulation {
 
   public tick(customDtSim?: number): SystemState {
     const now = performance.now();
-    const wallDtSec = Math.max(0.001, Math.min(1.0, (now - this.lastWallTime) / 1000));
+    const wallDtSec = Math.max(0.001, Math.min(0.2, (now - this.lastWallTime) / 1000));
     this.lastWallTime = now;
 
     const clock = this.state.clock;
@@ -186,12 +159,30 @@ class StandaloneSimulation {
       return this.state;
     }
 
-    const dtSim = customDtSim !== undefined ? customDtSim : wallDtSec * (clock.time_scale || 1.0);
+    const dtSim = customDtSim !== undefined ? customDtSim : wallDtSec;
     clock.sim_time = Number((clock.sim_time + dtSim).toFixed(2));
     clock.mission_elapsed_time_s = Number((clock.mission_elapsed_time_s + dtSim).toFixed(1));
 
+    // 1. Advance Sentinel's orbital angle continuously ALWAYS around Earth
+    // Completes 1 full revolution in 60s -> omega = 2pi / 60 = 0.10472 rad/s (6.0 deg/s)
+    const OMEGA_SENTINEL = (2.0 * Math.PI) / 60.0;
+    this.sentinelOrbitAngle = (this.sentinelOrbitAngle + OMEGA_SENTINEL * dtSim) % (2.0 * Math.PI);
+
+    // If avoidance burn is executed, smoothly raise Sentinel's altitude by +32.5 km
+    const avoidAlt = this.state.executed_maneuver
+      ? Math.min(32.5, Math.max(0, (clock.sim_time - this.maneuverExecSimTime) * 10.0))
+      : 0.0;
+    const rSentinel = 6978.137 + avoidAlt;
+
     const sentinel = this.state.objects.find(o => o.id === (this.state.sentinel?.id || 'SAT-01')) || this.state.objects[0];
     if (sentinel) {
+      sentinel.position_x = rSentinel * Math.cos(this.sentinelOrbitAngle);
+      sentinel.position_y = rSentinel * Math.sin(this.sentinelOrbitAngle);
+      sentinel.position_z = 0.0;
+      sentinel.velocity_x = -7.558 * Math.sin(this.sentinelOrbitAngle);
+      sentinel.velocity_y = 7.558 * Math.cos(this.sentinelOrbitAngle);
+      sentinel.velocity_z = 0.0;
+      sentinel.altitude = 600.0 + avoidAlt;
       this.state.sentinel = sentinel;
     }
 
@@ -200,67 +191,24 @@ class StandaloneSimulation {
       this.state.target = target;
     }
 
-    const isConjunctionScenario =
-      this.state.clock.scenario_name.includes('Close Approach') ||
-      this.state.clock.scenario_name.includes('No Acceptable');
+    // 2. Scenario-specific target debris behavior
+    if (this.isConjunctionScenario && sentinel && target) {
+      this.encounterElapsedS = Math.min(20.0, this.encounterElapsedS + dtSim);
+      const tau = Math.min(1.0, this.encounterElapsedS / 20.0); // 0.0 -> 1.0 over 20s
 
-    // Propagate background satellites & debris using RK4 central gravity
-    const subSteps = Math.max(1, Math.min(10, Math.ceil(Math.abs(dtSim) / 5.0)));
-    const subDt = dtSim / subSteps;
-    for (let s = 0; s < subSteps; s++) {
-      for (const obj of this.state.objects) {
-        if (isConjunctionScenario && (obj.id === sentinel?.id || obj.id === target?.id)) {
-          continue; // Driven by the exact converging approach equations below
-        }
-        const next = rk4Step(
-          obj.position_x, obj.position_y, obj.position_z,
-          obj.velocity_x, obj.velocity_y, obj.velocity_z,
-          subDt
-        );
-        obj.position_x = next.x;
-        obj.position_y = next.y;
-        obj.position_z = next.z;
-        obj.velocity_x = next.vx;
-        obj.velocity_y = next.vy;
-        obj.velocity_z = next.vz;
-        obj.altitude = next.alt;
-      }
-    }
-
-    // Dynamic 20-Second Converging Conjunction Trajectory
-    if (isConjunctionScenario && sentinel && target) {
-      const T_ENCOUNTER = 20.0;
-      const THETA_SPAN = (45.0 * Math.PI) / 180;
+      // Debris starts ~244 km offset along an inclined 65° orbit, and slowly moves towards Sentinel
+      const INITIAL_OFFSET_RAD = 0.035; // ~244 km arc offset
+      const thetaDebris = this.sentinelOrbitAngle + INITIAL_OFFSET_RAD * (1.0 - tau);
       const INC = (65.0 * Math.PI) / 180;
-      const R = 6978.137;
+      const R_DEBRIS = 6978.137;
 
-      const tau = Math.min(1.0, clock.sim_time / T_ENCOUNTER);
-      const thetaS = -THETA_SPAN * (1.0 - tau);
-      const thetaD = -THETA_SPAN * (1.0 - tau);
-
-      // If avoidance burn is executed, Sentinel cleanly deflects +32.5 km upward
-      const avoidAlt = this.state.executed_maneuver
-        ? Math.min(32.5, Math.max(0, (clock.sim_time - this.maneuverExecSimTime) * 6.5))
-        : 0.0;
-      const curRadiusS = R + avoidAlt;
-
-      if (clock.sim_time < 20.0 || this.state.executed_maneuver) {
-        sentinel.position_x = curRadiusS * Math.cos(thetaS);
-        sentinel.position_y = curRadiusS * Math.sin(thetaS);
-        sentinel.position_z = 0.0;
-        sentinel.velocity_x = -7.558 * Math.sin(thetaS);
-        sentinel.velocity_y = 7.558 * Math.cos(thetaS);
-        sentinel.velocity_z = 0.0;
-        sentinel.altitude = 600.0 + avoidAlt;
-
-        target.position_x = R * Math.cos(thetaD);
-        target.position_y = R * Math.sin(thetaD) * Math.cos(INC);
-        target.position_z = R * Math.sin(thetaD) * Math.sin(INC);
-        target.velocity_x = -7.558 * Math.sin(thetaD);
-        target.velocity_y = 7.558 * Math.cos(thetaD) * Math.cos(INC);
-        target.velocity_z = 7.558 * Math.cos(thetaD) * Math.sin(INC);
-        target.altitude = 600.0;
-      }
+      target.position_x = R_DEBRIS * Math.cos(thetaDebris);
+      target.position_y = R_DEBRIS * Math.sin(thetaDebris) * Math.cos(INC);
+      target.position_z = R_DEBRIS * Math.sin(thetaDebris) * Math.sin(INC);
+      target.velocity_x = -7.558 * Math.sin(thetaDebris);
+      target.velocity_y = 7.558 * Math.cos(thetaDebris) * Math.cos(INC);
+      target.velocity_z = 7.558 * Math.cos(thetaDebris) * Math.sin(INC);
+      target.altitude = 600.0;
 
       // Recompute threat distance, relative velocity, and CPA
       const rx = target.position_x - sentinel.position_x;
@@ -274,21 +222,21 @@ class StandaloneSimulation {
       const vrel = Math.sqrt(vx * vx + vy * vy + vz * vz);
 
       sentinel.target_distance_km = Number(dist.toFixed(2));
-      sentinel.target_rel_velocity_kms = Number(vrel.toFixed(3));
+      sentinel.target_rel_velocity_kms = 8.12;
       target.target_distance_km = Number(dist.toFixed(2));
 
-      const remainingS = Math.max(0, 20.0 - clock.sim_time);
+      const remainingS = Math.max(0, 20.0 - this.encounterElapsedS);
       if (this.state.risks && this.state.risks.length > 0) {
         this.state.risks[0].current_distance_km = Number(dist.toFixed(2));
-        this.state.risks[0].relative_speed_kms = Number(vrel.toFixed(2));
+        this.state.risks[0].relative_speed_kms = 8.12;
         this.state.risks[0].cpa_time_s = Math.round(remainingS);
         if (!this.state.executed_maneuver) {
-          this.state.risks[0].cpa_distance_km = clock.sim_time >= 20.0 ? 0.0 : Number(Math.min(dist, 0.0128).toFixed(4));
+          this.state.risks[0].cpa_distance_km = this.encounterElapsedS >= 20.0 ? 0.0 : Number(Math.min(dist, 0.0128).toFixed(4));
         }
       }
 
       // Conjunction Impact Check at t >= 20.0s
-      if (clock.sim_time >= 20.0) {
+      if (this.encounterElapsedS >= 20.0) {
         if (!this.state.executed_maneuver) {
           this.state.safety_status = 'COLLISION';
           sentinel.status = 'IMPACT_DESTROYED';
@@ -310,13 +258,38 @@ class StandaloneSimulation {
         }
       }
     } else if (sentinel && target) {
-      // Scenario 1 normal operation separation
-      const rx = target.position_x - sentinel.position_x;
-      const ry = target.position_y - sentinel.position_y;
-      const rz = target.position_z - sentinel.position_z;
-      const dist = Math.sqrt(rx * rx + ry * ry + rz * rz);
-      sentinel.target_distance_km = Number(dist.toFixed(2));
-      target.target_distance_km = Number(dist.toFixed(2));
+      // Scenario 1: Normal Operation - Debris orbits safely 180° away
+      const thetaDebris = (this.sentinelOrbitAngle + Math.PI) % (2.0 * Math.PI);
+      const R_DEBRIS = 7180.0;
+      target.position_x = R_DEBRIS * Math.cos(thetaDebris);
+      target.position_y = R_DEBRIS * Math.sin(thetaDebris);
+      target.position_z = 0.0;
+      sentinel.target_distance_km = 14158.0;
+      target.target_distance_km = 14158.0;
+      if (this.state.risks && this.state.risks.length > 0) {
+        this.state.risks[0].current_distance_km = 14158.0;
+        this.state.risks[0].cpa_distance_km = 180.0;
+        this.state.risks[0].cpa_time_s = 2400;
+        this.state.risks[0].risk_level = 'SAFE';
+      }
+    }
+
+    // 3. Continuously orbit all other catalog space objects around Earth
+    for (const obj of this.state.objects) {
+      if (obj.id === sentinel?.id || obj.id === target?.id) continue;
+      let ph = this.objectPhases.get(obj.id);
+      if (!ph) {
+        const r = Math.sqrt(obj.position_x ** 2 + obj.position_y ** 2 + obj.position_z ** 2) || 7000;
+        const inc = ((obj.inclination || 53.0) * Math.PI) / 180;
+        const omega = ((2.0 * Math.PI) / (obj.orbital_period || 5800)) * 96.0;
+        const phase0 = Math.atan2(obj.position_y, obj.position_x) || 0;
+        ph = { r, inc, omega, phase0 };
+        this.objectPhases.set(obj.id, ph);
+      }
+      const curAng = ph.phase0 + ph.omega * clock.sim_time;
+      obj.position_x = ph.r * Math.cos(curAng);
+      obj.position_y = ph.r * Math.sin(curAng) * Math.cos(ph.inc);
+      obj.position_z = ph.r * Math.sin(curAng) * Math.sin(ph.inc);
     }
 
     // Append downsampled telemetry point
@@ -377,13 +350,18 @@ class StandaloneSimulation {
       this.state.clock.is_running = true;
       this.state.clock.time_scale = 1.0;
       this.state.safety_status = 'NOMINAL';
+      this.state.executed_maneuver = null;
+      this.isConjunctionScenario = false;
+      this.initCatalogOrbits();
     } else if (scLower.includes('no acceptable') || scLower.includes('scenario 3')) {
       this.state = deepClone(scenario3Json as unknown as SystemState);
       this.state.clock.scenario_name = 'Scenario 3: No Acceptable Maneuver';
+      this.initCatalogOrbits();
       this.initCloseApproach(false);
     } else {
       this.state = deepClone(scenario2Json as unknown as SystemState);
       this.state.clock.scenario_name = 'Scenario 2: Avoidable Close Approach';
+      this.initCatalogOrbits();
       this.initCloseApproach(true);
     }
     this.lastWallTime = performance.now();

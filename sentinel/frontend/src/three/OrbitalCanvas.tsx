@@ -877,11 +877,10 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
         : 0;
 
       // Earth sidereal rotation coupled directly to live simulation time (+ subtle cloud wind shear)
-      const liveSimTime = baseSimTimeRef.current + dtSim;
-      const earthSiderealRad = (liveSimTime * Math.PI * 2) / 86164.0905;
+      const earthSiderealRad = elapsedTime * 0.04;
       if (earthMeshRef.current) earthMeshRef.current.rotation.y = earthSiderealRad;
       if (cloudsRef.current) cloudsRef.current.rotation.y = earthSiderealRad + elapsedTime * 0.008;
-      if (debrisCloudRef.current) debrisCloudRef.current.rotation.y = elapsedTime * 0.012;
+      if (debrisCloudRef.current) debrisCloudRef.current.rotation.y = elapsedTime * 0.015;
 
       const {
         objects: curObjects,
@@ -890,27 +889,35 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
         selectedObjectId: curSelectedId
       } = livePropsRef.current;
 
-      // Smooth 60 FPS Keplerian interpolation of every mesh between backend polls
+      // Smooth 60 FPS interpolation of every mesh to live orbital coordinates
       let sentVxScene = 0, sentVyScene = 1, sentVzScene = 0;
-      objectMeshesRef.current.forEach((mesh, id) => {
-        const st = baseStatesRef.current.get(id);
-        if (!st) return;
-        const prop = dtSim > 0
-          ? propagateStateRk2(st.rxKm, st.ryKm, st.rzKm, st.vxKms, st.vyKms, st.vzKms, dtSim)
-          : { rx: st.rxKm, ry: st.ryKm, rz: st.rzKm, vx: st.vxKms, vy: st.vyKms, vz: st.vzKms };
+      curObjects.forEach(obj => {
+        const mesh = objectMeshesRef.current.get(obj.id);
+        if (!mesh) return;
 
-        mesh.position.set(prop.rx * SCALE, prop.rz * SCALE, prop.ry * SCALE);
-        if (id === curSentinel?.id) {
-          sentVxScene = prop.vx;
-          sentVyScene = prop.vz;
-          sentVzScene = prop.vy;
-        }
-        if (st.tumble) {
+        const targetX = obj.position_x * SCALE;
+        const targetY = obj.position_z * SCALE;
+        const targetZ = obj.position_y * SCALE;
+
+        mesh.position.lerp(_vTmp.set(targetX, targetY, targetZ), 0.35);
+
+        const st = baseStatesRef.current.get(obj.id);
+        if (obj.id === curSentinel?.id) {
+          sentVxScene = obj.velocity_x;
+          sentVyScene = obj.velocity_z;
+          sentVzScene = obj.velocity_y;
+
+          _vTmp.set(obj.velocity_x, obj.velocity_z, obj.velocity_y);
+          if (_vTmp.lengthSq() > 0.01) {
+            _vTmp.normalize();
+            mesh.quaternion.setFromUnitVectors(_upVec, _vTmp);
+          }
+        } else if (st?.tumble) {
           mesh.rotation.x += delta * 1.1;
           mesh.rotation.y += delta * 0.75;
           mesh.rotation.z += delta * 0.55;
-        } else if (st.orientToVel) {
-          _vTmp.set(prop.vx, prop.vz, prop.vy);
+        } else if (st?.orientToVel) {
+          _vTmp.set(obj.velocity_x, obj.velocity_z, obj.velocity_y);
           if (_vTmp.lengthSq() > 0.01) {
             _vTmp.normalize();
             mesh.quaternion.setFromUnitVectors(_upVec, _vTmp);

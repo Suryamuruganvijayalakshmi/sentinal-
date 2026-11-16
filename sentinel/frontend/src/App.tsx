@@ -47,7 +47,7 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     let timerId: number | undefined;
-    const intervalMs = 100; // 10Hz physics telemetry update
+    const intervalMs = 33; // 30Hz physics telemetry update
 
     const scheduleNext = () => {
       if (cancelled || document.hidden) return;
@@ -106,26 +106,14 @@ export function App() {
     { id: 'Mission Reports', icon: FileText, label: 'Reports' }
   ];
 
-  const isMissionControl = activeTab === 'Mission Control';
-
   return (
-    <div className={`w-full h-[100dvh] flex items-center justify-center overflow-hidden font-sans ${
-      isMissionControl ? 'bg-[#02050f] p-0' : 'bg-gradient-to-br from-[#5b63d3] via-[#757ee6] to-[#4c54cb] p-0 sm:p-2 md:p-4 lg:p-5'
-    }`}>
+    <div className="w-full h-[100dvh] flex items-center justify-center overflow-hidden font-sans bg-gradient-to-br from-[#5b63d3] via-[#757ee6] to-[#4c54cb] p-0 sm:p-2 md:p-4 lg:p-5">
       
       {/* ── MISSION CONTROL EXECUTIVE WORKSPACE SHELL ── */}
-      <div className={`w-full h-full flex flex-col md:flex-row overflow-hidden relative ${
-        isMissionControl
-          ? 'bg-[#02050f] rounded-none border-0'
-          : 'max-w-[1620px] bg-[#f4f6fc] rounded-none sm:rounded-[28px] md:rounded-[32px] shadow-2xl border-0 sm:border sm:border-white/50'
-      }`}>
+      <div className="w-full h-full flex flex-col md:flex-row overflow-hidden relative max-w-[1620px] bg-[#f4f6fc] rounded-none sm:rounded-[28px] md:rounded-[32px] shadow-2xl border-0 sm:border sm:border-white/50">
         
         {/* ── LEFT VERTICAL NAVIGATION RAIL (Desktop / Tablet Landscape) ── */}
-        <aside className={`hidden md:flex w-14 md:w-16 flex-col items-center py-4 justify-between shrink-0 z-30 transition-colors ${
-          isMissionControl
-            ? 'bg-[#050c18] border-r border-cyan-500/20'
-            : 'bg-white border-r border-slate-100'
-        }`}>
+        <aside className="hidden md:flex w-14 md:w-16 flex-col items-center py-4 justify-between shrink-0 z-30 transition-colors bg-white border-r border-slate-100">
           
           {/* Top Aerospace Telemetry Emblem */}
           <div
@@ -134,10 +122,10 @@ export function App() {
             title="SENTINEL Orbital Safety Simulator"
           >
             <svg viewBox="0 0 40 40" className="w-8 h-8">
-              <circle cx="20" cy="20" r="16" fill="none" stroke="#00f0ff" strokeWidth="2.5" strokeDasharray="60 30" />
+              <circle cx="20" cy="20" r="16" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeDasharray="60 30" />
               <circle cx="20" cy="20" r="12" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeDasharray="40 20" />
-              <circle cx="20" cy="20" r="8" fill="none" stroke="#f43f5e" strokeWidth="2" strokeDasharray="25 15" />
-              <circle cx="20" cy="20" r="3" fill="#00f0ff" />
+              <circle cx="20" cy="20" r="8" fill="none" stroke="#ec4899" strokeWidth="2" strokeDasharray="25 15" />
+              <circle cx="20" cy="20" r="3" fill="#4f46e5" />
             </svg>
           </div>
 
@@ -153,11 +141,7 @@ export function App() {
                   title={item.label}
                   className={`relative w-full py-3 flex items-center justify-center transition-all cursor-pointer ${
                     isActive
-                      ? isMissionControl
-                        ? 'text-cyan-400 bg-cyan-950/40 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-cyan-400 before:rounded-r'
-                        : 'text-[#4f46e5] bg-indigo-50/80 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#4f46e5] before:rounded-r'
-                      : isMissionControl
-                      ? 'text-slate-500 hover:text-cyan-300 hover:bg-cyan-950/20'
+                      ? 'text-[#4f46e5] bg-indigo-50/80 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#4f46e5] before:rounded-r'
                       : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'
                   }`}
                 >
@@ -170,24 +154,16 @@ export function App() {
           {/* Bottom Mission Officer & Scenario Reset */}
           <div className="flex flex-col items-center gap-3">
             <div
-              className={`w-8 h-8 rounded-full border overflow-hidden flex items-center justify-center text-xs ${
-                isMissionControl
-                  ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-400'
-                  : 'bg-slate-100 border-slate-200 text-slate-600'
-              }`}
+              className="w-8 h-8 rounded-full border border-slate-200 bg-slate-100 overflow-hidden flex items-center justify-center text-xs text-slate-600 shadow-2xs"
               title="Mission Safety Officer"
             >
-              <User className="w-4 h-4" />
+              <User className="w-4 h-4 text-slate-600" />
             </div>
 
             <button
               onClick={() => handleSelectScenario('Scenario 2: Avoidable Close Approach')}
               title="Reset Simulation Scenario"
-              className={`p-1.5 transition-colors rounded-lg ${
-                isMissionControl
-                  ? 'text-slate-500 hover:text-cyan-400 hover:bg-cyan-950/30'
-                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+              className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors rounded-lg hover:bg-slate-50 cursor-pointer"
             >
               <Power className="w-4 h-4" />
             </button>
@@ -195,22 +171,18 @@ export function App() {
         </aside>
 
         {/* ── MAIN CONTENT AREA (Header + Active Viewport) ── */}
-        <div className={`flex-1 min-w-0 min-h-0 flex flex-col md:h-full overflow-hidden ${
-          isMissionControl ? 'bg-[#02050f]' : 'bg-[#f4f6fc]'
-        }`}>
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col md:h-full overflow-hidden bg-[#f4f6fc]">
           
-          {/* Top Search & System Header (Hidden on Mission Control as ODTS has dedicated header) */}
-          {!isMissionControl && (
-            <Header
-              systemState={systemState}
-              activeTab={activeTab}
-              onSelectTab={setActiveTab}
-              onSelectScenario={handleSelectScenario}
-              onOpenDemoModal={() => setIsDemoModalOpen(true)}
-              theme={theme}
-              onToggleTheme={handleToggleTheme}
-            />
-          )}
+          {/* Top Search & System Header */}
+          <Header
+            systemState={systemState}
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+            onSelectScenario={handleSelectScenario}
+            onOpenDemoModal={() => setIsDemoModalOpen(true)}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+          />
 
           {/* Active Viewport */}
           <main className="flex-1 min-h-0 w-full overflow-hidden relative">
