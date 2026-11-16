@@ -1,9 +1,9 @@
 import { SystemState } from '../types';
 import { standaloneSimulation } from './standaloneSimulation';
 
-// When VITE_USE_LIVE_API is explicitly set to 'true', the client will attempt to fetch from the backend.
-// By default, it operates completely standalone in-memory with zero API dependencies.
-const USE_LIVE_API = import.meta.env.VITE_USE_LIVE_API === 'true';
+// Pure standalone in-memory physics engine and orbital calculations.
+// Zero backend API dependency - instantaneous response and zero network errors.
+const USE_LIVE_API = false;
 const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
 const API_BASE = configuredBase ? configuredBase.replace(/\/+$/, '') : '/api';
 

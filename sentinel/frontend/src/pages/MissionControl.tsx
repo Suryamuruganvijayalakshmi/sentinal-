@@ -17,6 +17,7 @@ interface MissionControlProps {
   onOpenManeuverLab: () => void;
   onJumpToCPA: () => void;
   onNavigateToReports?: () => void;
+  onSelectScenario?: (sc: string) => void;
   theme: 'light' | 'dark';
 }
 
@@ -27,6 +28,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({
   cameraMode,
   onChangeCameraMode,
   onNavigateToReports,
+  onSelectScenario,
 }) => {
   const {
     clock,
@@ -71,13 +73,14 @@ export const MissionControl: React.FC<MissionControlProps> = ({
   ) || (risks && risks.length > 0 ? risks[0] : null);
 
   const isExecuted = Boolean(executed_maneuver);
+  const isCollided = safety_status === 'COLLISION' || sentinel?.status === 'IMPACT_DESTROYED';
 
   // Dynamic collision probability
   const collisionProbabilityPct = isScenario1
     ? 0.0001
     : isExecuted
     ? 0.0001
-    : isScenario3
+    : isScenario3 || isCollided
     ? 99.9
     : 98.2;
 
@@ -90,7 +93,9 @@ export const MissionControl: React.FC<MissionControlProps> = ({
     ? 58.4
     : (threatRisk?.cpa_distance_km ?? target?.metadata?.predicted_cpa_km ?? 0.0128);
 
-  const tCpaRemainingS = Math.max(0, Math.round((threatRisk?.cpa_time_s ?? 258) - simTime));
+  const tCpaRemainingS = isCollided
+    ? 0
+    : Math.max(0, Math.round(threatRisk?.cpa_time_s ?? 0));
   const tMinusMinutes = Math.floor(tCpaRemainingS / 60);
   const tMinusSeconds = tCpaRemainingS % 60;
   const tMinusStr = `00:${String(tMinusMinutes).padStart(2, '0')}:${String(tMinusSeconds).padStart(2, '0')}`;
@@ -110,7 +115,16 @@ export const MissionControl: React.FC<MissionControlProps> = ({
   // Scenario switching handler
   const handleSelectScenario = async (sc: string) => {
     try {
-      await api.loadScenario(sc);
+      if (onSelectScenario) {
+        onSelectScenario(sc);
+      } else {
+        await api.loadScenario(sc);
+      }
+      if (sc.toLowerCase().includes('close approach') || sc.toLowerCase().includes('no acceptable')) {
+        onChangeCameraMode('COLLISION');
+      } else {
+        onChangeCameraMode('GLOBAL');
+      }
     } catch (e) {
       console.error('Failed to load scenario:', e);
     }
@@ -545,38 +559,63 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                 </div>
               </div>
 
-              {/* AVOIDANCE ACTIONS & BURN BUTTON */}
-              {isScenario2 && !isExecuted && (
+              {/* AVOIDANCE ACTIONS & BURN BUTTON / COLLISION NOTIFICATION */}
+              {isCollided ? (
+                <div className="flex flex-col gap-2">
+                  <div className="p-2.5 rounded-lg bg-rose-950/90 border border-rose-500 text-[11px] text-rose-300 text-center font-bold animate-pulse shadow-[0_0_18px_rgba(239,68,68,0.5)]">
+                    💥 COLLISION IMPACT CONFIRMED AT T+20.0s! CATASTROPHIC DESTRUCTION
+                  </div>
+                  <button
+                    onClick={() => handleSelectScenario('Scenario 2: Avoidable Close Approach')}
+                    className="w-full py-2.5 px-3 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white rounded-lg text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_18px_rgba(245,158,11,0.5)] transition-all"
+                  >
+                    <RotateCcw className="w-4 h-4 text-white" />
+                    <span>REPLAY CLOSE APPROACH ENCOUNTER</span>
+                  </button>
+                </div>
+              ) : isScenario2 && !isExecuted ? (
                 <div className="flex flex-col gap-2">
                   <div className="text-[10px] text-slate-300 flex justify-between">
-                    <span>RECOMMENDED BURN:</span>
-                    <span className="text-cyan-300 font-bold">PROGRADE +2.4 m/s (Δh +18.5km)</span>
+                    <span>TIME TO IMPACT:</span>
+                    <span className="text-rose-400 font-bold animate-pulse">{tMinusStr} (CLOSING AT 8.12 km/s)</span>
                   </div>
                   <button
                     onClick={handleExecuteBurn}
                     disabled={isAutoExecuting}
-                    className="w-full py-2.5 px-3 bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 text-white rounded-lg text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(244,63,94,0.5)] transition-all active:scale-98"
+                    className="w-full py-2.5 px-3 bg-gradient-to-r from-rose-600 via-indigo-600 to-cyan-500 hover:from-rose-500 hover:to-cyan-400 text-white rounded-lg text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(244,63,94,0.6)] transition-all active:scale-98"
                   >
                     <Rocket className="w-4 h-4 text-white" />
-                    <span>{isAutoExecuting ? 'EXECUTING BURN...' : 'EXECUTE AVOIDANCE MANEUVER'}</span>
+                    <span>{isAutoExecuting ? 'FIRING THRUSTERS...' : 'EXECUTE AVOIDANCE MANEUVER'}</span>
                   </button>
                 </div>
-              )}
-
-              {isScenario2 && isExecuted && (
-                <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-[11px] text-emerald-300 text-center font-bold">
-                  ✓ MANEUVER EXECUTED • CPA EXPANDED TO {cpaDistanceKm.toFixed(1)} KM (SAFE PASS VERIFIED)
+              ) : isScenario2 && isExecuted ? (
+                <div className="flex flex-col gap-2">
+                  <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-[11px] text-emerald-300 text-center font-bold">
+                    ✓ AVOIDANCE MANEUVER EXECUTED • CPA EXPANDED TO {cpaDistanceKm.toFixed(1)} KM (SAFE PASS VERIFIED)
+                  </div>
+                  <button
+                    onClick={() => handleSelectScenario('Scenario 2: Avoidable Close Approach')}
+                    className="w-full py-2 px-3 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>REPLAY ENCOUNTER</span>
+                  </button>
                 </div>
-              )}
-
-              {isScenario3 && (
-                <div className="p-2.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-[10px] text-rose-300 leading-tight">
-                  <div className="font-bold text-rose-400 mb-1">CRITICAL ALERT: INSUFFICIENT PROPELLANT</div>
-                  All candidate burn solutions intersect secondary debris fragments in swarm. Payload emergency shield mode recommended.
+              ) : isScenario3 ? (
+                <div className="flex flex-col gap-2">
+                  <div className="p-2.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-[10px] text-rose-300 leading-tight">
+                    <div className="font-bold text-rose-400 mb-1">CRITICAL ALERT: INSUFFICIENT PROPELLANT</div>
+                    Approaching collision at 8.12 km/s. Propellant depleted (0.2 kg). Collision unavoidable.
+                  </div>
+                  <button
+                    onClick={() => handleSelectScenario('Scenario 3: No Acceptable Maneuver')}
+                    className="w-full py-2 px-3 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-500/30 text-rose-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>REPLAY CRITICAL SCENARIO</span>
+                  </button>
                 </div>
-              )}
-
-              {isScenario1 && (
+              ) : (
                 <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-300 text-center">
                   All orbital assets in clear flight envelope. No conjunction vectors detected within screening volume.
                 </div>

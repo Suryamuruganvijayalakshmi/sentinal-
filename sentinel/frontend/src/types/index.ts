@@ -156,7 +156,16 @@ export interface TelemetryPoint {
   phase: string;
 }
 
-export type SafetyStatus = 'MONITORING' | 'WARNING' | 'EVALUATING' | 'VERIFIED' | 'REVIEW REQUIRED';
+export type SafetyStatus = 
+  | 'MONITORING' 
+  | 'WARNING' 
+  | 'CRITICAL' 
+  | 'EVALUATING' 
+  | 'VERIFIED' 
+  | 'REVIEW REQUIRED' 
+  | 'COLLISION' 
+  | 'NOMINAL' 
+  | 'SAFE';
 
 export interface ManeuverCandidate {
   id: string;

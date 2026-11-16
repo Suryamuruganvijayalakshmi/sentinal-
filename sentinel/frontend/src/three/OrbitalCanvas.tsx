@@ -94,6 +94,8 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
   const targetBeaconRef = useRef<THREE.PointLight | null>(null);
   const maneuverArrowRef = useRef<THREE.ArrowHelper | null>(null);
   const debrisCloudRef = useRef<THREE.Points | null>(null);
+  const collisionGroupRef = useRef<THREE.Group | null>(null);
+  const sparkVelsRef = useRef<Array<THREE.Vector3>>([]);
 
   // Lights & Environment refs
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
@@ -686,6 +688,57 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
     scene.add(riskGroup);
     riskMarkersRef.current = riskGroup;
 
+    // 11B. 3D Hypervelocity Collision Impact & Explosion Effect Group
+    const colGroup = new THREE.Group();
+    colGroup.visible = false;
+    scene.add(colGroup);
+    collisionGroupRef.current = colGroup;
+
+    const flashGeo = new THREE.SphereGeometry(0.45, 24, 24);
+    const flashMat = new THREE.MeshBasicMaterial({
+      color: 0xff3300,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+    const flashMesh = new THREE.Mesh(flashGeo, flashMat);
+    colGroup.add(flashMesh);
+
+    const shockGeo = new THREE.RingGeometry(0.2, 0.4, 32);
+    const shockMat = new THREE.MeshBasicMaterial({
+      color: 0xffaa00,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+    const shockMesh = new THREE.Mesh(shockGeo, shockMat);
+    colGroup.add(shockMesh);
+
+    const sparkCount = 80;
+    const sparkGeo = new THREE.BufferGeometry();
+    const sparkPos = new Float32Array(sparkCount * 3);
+    const sparkVels: Array<THREE.Vector3> = [];
+    for (let i = 0; i < sparkCount; i++) {
+      sparkPos[i * 3] = 0; sparkPos[i * 3 + 1] = 0; sparkPos[i * 3 + 2] = 0;
+      sparkVels.push(new THREE.Vector3(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2
+      ).normalize().multiplyScalar(0.3 + Math.random() * 0.7));
+    }
+    sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+    const sparkMat = new THREE.PointsMaterial({
+      color: 0xffdd44,
+      size: 3.5,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+    const sparkPoints = new THREE.Points(sparkGeo, sparkMat);
+    colGroup.add(sparkPoints);
+    sparkVelsRef.current = sparkVels;
+
     // 12. Object Click Raycasting
     const dom = renderer.domElement;
     const onClick = (e: MouseEvent) => {
@@ -944,6 +997,38 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
         posAttr.needsUpdate = true;
       }
 
+      // 13B. Live Hypervelocity Collision Explosion & Breakup FX
+      const isCollided = curSentinel?.status === 'IMPACT_DESTROYED' || curTarget?.status === 'IMPACT_DESTROYED';
+      if (collisionGroupRef.current && sentMesh) {
+        if (isCollided) {
+          collisionGroupRef.current.position.copy(sentMesh.position);
+          collisionGroupRef.current.visible = true;
+
+          const pPulse = 0.8 + Math.abs(Math.sin(elapsedTime * 15.0)) * 0.7;
+          flashMesh.scale.set(pPulse, pPulse, pPulse);
+          shockMesh.rotation.z += delta * 3.5;
+          const sScale = (0.8 + (elapsedTime % 1.2) * 2.8);
+          shockMesh.scale.set(sScale, sScale, sScale);
+          (shockMat as THREE.MeshBasicMaterial).opacity = Math.max(0.1, 1.0 - ((elapsedTime % 1.2) / 1.2));
+
+          const posAttr = sparkGeo.getAttribute('position') as THREE.BufferAttribute;
+          for (let i = 0; i < sparkCount; i++) {
+            const v = sparkVelsRef.current[i];
+            if (v) {
+              const dist = ((elapsedTime * 2.2 + i * 0.05) % 1.4);
+              posAttr.setXYZ(i, v.x * dist, v.y * dist, v.z * dist);
+            }
+          }
+          posAttr.needsUpdate = true;
+
+          sentMesh.rotation.x += delta * 5.0;
+          sentMesh.rotation.y += delta * 3.5;
+          sentMesh.rotation.z += delta * 2.5;
+        } else {
+          collisionGroupRef.current.visible = false;
+        }
+      }
+
       // Continuous chase-camera tracking at 60 FPS for chase presets
       const mode = cameraModeRef.current;
       const isChaseMode =
@@ -1103,6 +1188,8 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
       fillLightRef.current = null;
       starsPointsRef.current = null;
       debrisCloudRef.current = null;
+      collisionGroupRef.current = null;
+      sparkVelsRef.current = [];
       sceneRef.current = null;
       cameraRef.current = null;
       rendererRef.current = null;

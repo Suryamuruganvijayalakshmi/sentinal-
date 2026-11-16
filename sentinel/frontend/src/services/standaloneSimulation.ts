@@ -79,9 +79,97 @@ function rk4Step(
 class StandaloneSimulation {
   private state: SystemState;
   private lastWallTime: number = performance.now();
+  private maneuverExecSimTime: number = 0;
 
   constructor() {
     this.state = deepClone(scenario2Json as unknown as SystemState);
+    this.initCloseApproach(true);
+  }
+
+  private initCloseApproach(canAvoid: boolean): void {
+    const R = 6978.137;
+    const THETA_SPAN = (45.0 * Math.PI) / 180; // 45° visible arc traverse across orbit
+    const inc = (65.0 * Math.PI) / 180;
+
+    // Sentinel at t=0 (starts 45° back on equatorial orbit)
+    const theta_s = -THETA_SPAN;
+    const pos_s0 = [R * Math.cos(theta_s), R * Math.sin(theta_s), 0.0];
+    const vel_s0 = [-7.558 * Math.sin(theta_s), 7.558 * Math.cos(theta_s), 0.0];
+
+    // Debris at t=0 (starts 45° back on 65° inclined plane)
+    const theta_d = -THETA_SPAN;
+    const pos_d0 = [
+      R * Math.cos(theta_d),
+      R * Math.sin(theta_d) * Math.cos(inc),
+      R * Math.sin(theta_d) * Math.sin(inc)
+    ];
+    const vel_d0 = [
+      -7.558 * Math.sin(theta_d),
+      7.558 * Math.cos(theta_d) * Math.cos(inc),
+      7.558 * Math.cos(theta_d) * Math.sin(inc)
+    ];
+
+    const sent = this.state.sentinel || this.state.objects[0];
+    if (sent) {
+      sent.id = 'SAT-01';
+      sent.name = "SAT-A34 'SENTINEL'";
+      sent.position_x = pos_s0[0];
+      sent.position_y = pos_s0[1];
+      sent.position_z = pos_s0[2];
+      sent.velocity_x = vel_s0[0];
+      sent.velocity_y = vel_s0[1];
+      sent.velocity_z = vel_s0[2];
+      sent.altitude = 600.0;
+      sent.status = 'CONVERGING_APPROACH';
+      sent.health_status = 'HEALTHY';
+      sent.fuel_kg = canAvoid ? 148.7 : 0.2;
+    }
+
+    let tgt = this.state.target;
+    if (!tgt || tgt.id === sent?.id) {
+      tgt = this.state.objects.find(o => o.id !== sent?.id) || null;
+    }
+    if (tgt) {
+      tgt.id = 'DEBRIS-8871';
+      tgt.name = 'DEBRIS #8871 (Cosmos-1408)';
+      tgt.position_x = pos_d0[0];
+      tgt.position_y = pos_d0[1];
+      tgt.position_z = pos_d0[2];
+      tgt.velocity_x = vel_d0[0];
+      tgt.velocity_y = vel_d0[1];
+      tgt.velocity_z = vel_d0[2];
+      tgt.altitude = 600.0;
+      tgt.status = 'COLLISION_VECTOR';
+      tgt.health_status = 'CRITICAL';
+      this.state.target = tgt;
+    }
+
+    const sObj = this.state.objects.find(o => o.id === sent?.id);
+    if (sObj && sent) Object.assign(sObj, sent);
+    const tObj = this.state.objects.find(o => o.id === tgt?.id);
+    if (tObj && tgt) Object.assign(tObj, tgt);
+
+    this.state.clock.sim_time = 0.0;
+    this.state.clock.mission_elapsed_time_s = 0.0;
+    this.state.clock.is_running = true;
+    this.state.clock.time_scale = 1.0;
+    this.state.executed_maneuver = null;
+    this.state.safety_status = 'WARNING';
+    this.maneuverExecSimTime = 0;
+
+    const initDist = Math.sqrt(
+      (pos_d0[0] - pos_s0[0]) ** 2 +
+      (pos_d0[1] - pos_s0[1]) ** 2 +
+      (pos_d0[2] - pos_s0[2]) ** 2
+    );
+
+    if (this.state.risks && this.state.risks.length > 0) {
+      this.state.risks[0].current_distance_km = Number(initDist.toFixed(1));
+      this.state.risks[0].cpa_time_s = 20.0;
+      this.state.risks[0].cpa_distance_km = 0.0;
+      this.state.risks[0].relative_speed_kms = 8.12;
+      this.state.risks[0].risk_level = 'CRITICAL';
+    }
   }
 
   public getState(): SystemState {
@@ -98,16 +186,32 @@ class StandaloneSimulation {
       return this.state;
     }
 
-    const dtSim = customDtSim !== undefined ? customDtSim : wallDtSec * (clock.time_scale || 25);
+    const dtSim = customDtSim !== undefined ? customDtSim : wallDtSec * (clock.time_scale || 1.0);
     clock.sim_time = Number((clock.sim_time + dtSim).toFixed(2));
     clock.mission_elapsed_time_s = Number((clock.mission_elapsed_time_s + dtSim).toFixed(1));
 
-    // Propagate all objects using RK4 two-body Keplerian physics
+    const sentinel = this.state.objects.find(o => o.id === (this.state.sentinel?.id || 'SAT-01')) || this.state.objects[0];
+    if (sentinel) {
+      this.state.sentinel = sentinel;
+    }
+
+    const target = this.state.target ? this.state.objects.find(o => o.id === this.state.target!.id) : null;
+    if (target) {
+      this.state.target = target;
+    }
+
+    const isConjunctionScenario =
+      this.state.clock.scenario_name.includes('Close Approach') ||
+      this.state.clock.scenario_name.includes('No Acceptable');
+
+    // Propagate background satellites & debris using RK4 central gravity
     const subSteps = Math.max(1, Math.min(10, Math.ceil(Math.abs(dtSim) / 5.0)));
     const subDt = dtSim / subSteps;
-
     for (let s = 0; s < subSteps; s++) {
       for (const obj of this.state.objects) {
+        if (isConjunctionScenario && (obj.id === sentinel?.id || obj.id === target?.id)) {
+          continue; // Driven by the exact converging approach equations below
+        }
         const next = rk4Step(
           obj.position_x, obj.position_y, obj.position_z,
           obj.velocity_x, obj.velocity_y, obj.velocity_z,
@@ -123,20 +227,42 @@ class StandaloneSimulation {
       }
     }
 
-    // Keep sentinel reference synced
-    const sentinel = this.state.objects.find(o => o.id === (this.state.sentinel?.id || 'SAT-01')) || this.state.objects[0];
-    if (sentinel) {
-      this.state.sentinel = sentinel;
-    }
+    // Dynamic 20-Second Converging Conjunction Trajectory
+    if (isConjunctionScenario && sentinel && target) {
+      const T_ENCOUNTER = 20.0;
+      const THETA_SPAN = (45.0 * Math.PI) / 180;
+      const INC = (65.0 * Math.PI) / 180;
+      const R = 6978.137;
 
-    // Keep target reference synced
-    const target = this.state.target ? this.state.objects.find(o => o.id === this.state.target!.id) : null;
-    if (target) {
-      this.state.target = target;
-    }
+      const tau = Math.min(1.0, clock.sim_time / T_ENCOUNTER);
+      const thetaS = -THETA_SPAN * (1.0 - tau);
+      const thetaD = -THETA_SPAN * (1.0 - tau);
 
-    // Recompute threat distance, relative velocity, and CPA
-    if (sentinel && target) {
+      // If avoidance burn is executed, Sentinel cleanly deflects +32.5 km upward
+      const avoidAlt = this.state.executed_maneuver
+        ? Math.min(32.5, Math.max(0, (clock.sim_time - this.maneuverExecSimTime) * 6.5))
+        : 0.0;
+      const curRadiusS = R + avoidAlt;
+
+      if (clock.sim_time < 20.0 || this.state.executed_maneuver) {
+        sentinel.position_x = curRadiusS * Math.cos(thetaS);
+        sentinel.position_y = curRadiusS * Math.sin(thetaS);
+        sentinel.position_z = 0.0;
+        sentinel.velocity_x = -7.558 * Math.sin(thetaS);
+        sentinel.velocity_y = 7.558 * Math.cos(thetaS);
+        sentinel.velocity_z = 0.0;
+        sentinel.altitude = 600.0 + avoidAlt;
+
+        target.position_x = R * Math.cos(thetaD);
+        target.position_y = R * Math.sin(thetaD) * Math.cos(INC);
+        target.position_z = R * Math.sin(thetaD) * Math.sin(INC);
+        target.velocity_x = -7.558 * Math.sin(thetaD);
+        target.velocity_y = 7.558 * Math.cos(thetaD) * Math.cos(INC);
+        target.velocity_z = 7.558 * Math.cos(thetaD) * Math.sin(INC);
+        target.altitude = 600.0;
+      }
+
+      // Recompute threat distance, relative velocity, and CPA
       const rx = target.position_x - sentinel.position_x;
       const ry = target.position_y - sentinel.position_y;
       const rz = target.position_z - sentinel.position_z;
@@ -151,20 +277,46 @@ class StandaloneSimulation {
       sentinel.target_rel_velocity_kms = Number(vrel.toFixed(3));
       target.target_distance_km = Number(dist.toFixed(2));
 
-      const rDotV = rx * vx + ry * vy + rz * vz;
-      const v2 = vrel * vrel;
-      const tCpa = v2 > 1e-6 ? -rDotV / v2 : 0;
-      const cpaPos = [rx + tCpa * vx, ry + tCpa * vy, rz + tCpa * vz];
-      const dCpa = Math.sqrt(cpaPos[0] ** 2 + cpaPos[1] ** 2 + cpaPos[2] ** 2);
-
+      const remainingS = Math.max(0, 20.0 - clock.sim_time);
       if (this.state.risks && this.state.risks.length > 0) {
         this.state.risks[0].current_distance_km = Number(dist.toFixed(2));
         this.state.risks[0].relative_speed_kms = Number(vrel.toFixed(2));
-        this.state.risks[0].cpa_time_s = Math.max(0, Math.round(tCpa));
+        this.state.risks[0].cpa_time_s = Math.round(remainingS);
         if (!this.state.executed_maneuver) {
-          this.state.risks[0].cpa_distance_km = Number(dCpa.toFixed(2));
+          this.state.risks[0].cpa_distance_km = clock.sim_time >= 20.0 ? 0.0 : Number(Math.min(dist, 0.0128).toFixed(4));
         }
       }
+
+      // Conjunction Impact Check at t >= 20.0s
+      if (clock.sim_time >= 20.0) {
+        if (!this.state.executed_maneuver) {
+          this.state.safety_status = 'COLLISION';
+          sentinel.status = 'IMPACT_DESTROYED';
+          sentinel.health_status = 'CRITICAL';
+          target.status = 'IMPACT_DESTROYED';
+          target.health_status = 'CRITICAL';
+          sentinel.target_distance_km = 0.0;
+          target.target_distance_km = 0.0;
+          if (this.state.risks && this.state.risks.length > 0) {
+            this.state.risks[0].current_distance_km = 0.0;
+            this.state.risks[0].cpa_distance_km = 0.0;
+            this.state.risks[0].cpa_time_s = 0;
+            this.state.risks[0].risk_level = 'CRITICAL';
+          }
+        } else {
+          this.state.safety_status = 'VERIFIED';
+          sentinel.status = 'AVOIDANCE_SUCCESS';
+          sentinel.health_status = 'HEALTHY';
+        }
+      }
+    } else if (sentinel && target) {
+      // Scenario 1 normal operation separation
+      const rx = target.position_x - sentinel.position_x;
+      const ry = target.position_y - sentinel.position_y;
+      const rz = target.position_z - sentinel.position_z;
+      const dist = Math.sqrt(rx * rx + ry * ry + rz * rz);
+      sentinel.target_distance_km = Number(dist.toFixed(2));
+      target.target_distance_km = Number(dist.toFixed(2));
     }
 
     // Append downsampled telemetry point
@@ -220,16 +372,20 @@ class StandaloneSimulation {
     if (scLower.includes('normal') || scLower.includes('scenario 1')) {
       this.state = deepClone(scenario1Json as unknown as SystemState);
       this.state.clock.scenario_name = 'Scenario 1: Normal Operation';
+      this.state.clock.sim_time = 0.0;
+      this.state.clock.mission_elapsed_time_s = 0.0;
+      this.state.clock.is_running = true;
+      this.state.clock.time_scale = 1.0;
+      this.state.safety_status = 'NOMINAL';
     } else if (scLower.includes('no acceptable') || scLower.includes('scenario 3')) {
       this.state = deepClone(scenario3Json as unknown as SystemState);
       this.state.clock.scenario_name = 'Scenario 3: No Acceptable Maneuver';
+      this.initCloseApproach(false);
     } else {
       this.state = deepClone(scenario2Json as unknown as SystemState);
       this.state.clock.scenario_name = 'Scenario 2: Avoidable Close Approach';
+      this.initCloseApproach(true);
     }
-    this.state.clock.sim_time = 0.0;
-    this.state.clock.mission_elapsed_time_s = 0.0;
-    this.state.clock.is_running = true;
     this.lastWallTime = performance.now();
   }
 
@@ -254,12 +410,18 @@ class StandaloneSimulation {
 
     this.state.executed_maneuver = candidate;
     this.state.safety_status = 'VERIFIED';
+    this.maneuverExecSimTime = this.state.clock.sim_time;
     this.state.sentinel.mission_phase = 'MANEUVER';
     this.state.sentinel.status = 'MANEUVER';
     this.state.sentinel.fuel_kg = Math.max(0, (this.state.sentinel.fuel_kg ?? 150) - (candidate.propellant_kg || 1.31));
 
-    // Apply impulsive burn delta-v to satellite velocity
+    // Apply impulsive burn delta-v to satellite velocity and deflect out of collision plane
     const dvKmS = candidate.delta_v_ms / 1000.0;
+    this.state.sentinel.velocity_z += 0.85;
+    this.state.sentinel.velocity_x += 0.45;
+    this.state.sentinel.altitude += 28.5;
+    this.state.sentinel.status = 'AVOIDANCE_SUCCESS';
+    this.state.sentinel.health_status = 'HEALTHY';
     if (candidate.direction === 'PROGRADE') {
       const vMag = Math.sqrt(this.state.sentinel.velocity_x ** 2 + this.state.sentinel.velocity_y ** 2 + this.state.sentinel.velocity_z ** 2) || 7.56;
       this.state.sentinel.velocity_x += (this.state.sentinel.velocity_x / vMag) * dvKmS;

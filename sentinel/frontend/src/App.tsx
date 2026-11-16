@@ -47,7 +47,7 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     let timerId: number | undefined;
-    const intervalMs = import.meta.env.PROD ? 1000 : 250;
+    const intervalMs = 100; // 10Hz physics telemetry update
 
     const scheduleNext = () => {
       if (cancelled || document.hidden) return;
@@ -227,6 +227,7 @@ export function App() {
                 onOpenManeuverLab={() => setActiveTab('Maneuver Planner')}
                 onJumpToCPA={handleJumpToCPA}
                 onNavigateToReports={() => setActiveTab('Mission Reports')}
+                onSelectScenario={handleSelectScenario}
                 theme={theme}
               />
             )}
