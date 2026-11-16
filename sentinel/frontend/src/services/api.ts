@@ -1,5 +1,9 @@
 import { SystemState } from '../types';
+import { standaloneSimulation } from './standaloneSimulation';
 
+// When VITE_USE_LIVE_API is explicitly set to 'true', the client will attempt to fetch from the backend.
+// By default, it operates completely standalone in-memory with zero API dependencies.
+const USE_LIVE_API = import.meta.env.VITE_USE_LIVE_API === 'true';
 const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
 const API_BASE = configuredBase ? configuredBase.replace(/\/+$/, '') : '/api';
 
@@ -45,87 +49,104 @@ async function apiFetch(path: string, init: RequestInit = {}, syncToken = false)
 
 export const api = {
   async getStatus(): Promise<SystemState> {
-    const res = await apiFetch('/status', {}, true);
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const res = await apiFetch('/status', {}, true);
+        return await res.json();
+      } catch (err) {
+        console.warn('Backend /status unreachable, using standalone simulation:', err);
+      }
+    }
+    return standaloneSimulation.getState();
   },
 
   async play(): Promise<void> {
-    await apiFetch('/clock/play', { method: 'POST' }, true);
+    standaloneSimulation.play();
+    if (USE_LIVE_API) {
+      try { await apiFetch('/clock/play', { method: 'POST' }, true); } catch { /* offline fallback */ }
+    }
   },
 
   async pause(): Promise<void> {
-    await apiFetch('/clock/pause', { method: 'POST' }, true);
+    standaloneSimulation.pause();
+    if (USE_LIVE_API) {
+      try { await apiFetch('/clock/pause', { method: 'POST' }, true); } catch { /* offline fallback */ }
+    }
   },
 
   async reset(): Promise<void> {
-    await apiFetch('/clock/reset', { method: 'POST' }, true);
+    standaloneSimulation.reset();
+    if (USE_LIVE_API) {
+      try { await apiFetch('/clock/reset', { method: 'POST' }, true); } catch { /* offline fallback */ }
+    }
   },
 
   async setSpeed(speed: number): Promise<void> {
-    await apiFetch(
-      '/clock/speed',
-      {
-        method: 'POST',
-        body: JSON.stringify({ speed })
-      },
-      true
-    );
+    standaloneSimulation.setSpeed(speed);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/clock/speed', { method: 'POST', body: JSON.stringify({ speed }) }, true);
+      } catch { /* offline fallback */ }
+    }
   },
 
   async loadScenario(scenario: string, custom_params?: Record<string, any>): Promise<void> {
-    await apiFetch(
-      '/scenario/load',
-      {
-        method: 'POST',
-        body: JSON.stringify({ scenario, custom_params })
-      },
-      true
-    );
+    standaloneSimulation.loadScenario(scenario);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/scenario/load', { method: 'POST', body: JSON.stringify({ scenario, custom_params }) }, true);
+      } catch { /* offline fallback */ }
+    }
   },
 
   async startDemoMission(scenario?: string): Promise<void> {
-    await apiFetch(
-      '/mission/demo',
-      {
-        method: 'POST',
-        body: JSON.stringify({ scenario })
-      },
-      true
-    );
+    if (scenario) {
+      standaloneSimulation.loadScenario(scenario);
+    }
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/mission/demo', { method: 'POST', body: JSON.stringify({ scenario }) }, true);
+      } catch { /* offline fallback */ }
+    }
   },
 
   async selectTarget(target_id: string): Promise<void> {
-    await apiFetch(
-      '/target/select',
-      {
-        method: 'POST',
-        body: JSON.stringify({ target_id })
-      },
-      true
-    );
+    standaloneSimulation.selectTarget(target_id);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/target/select', { method: 'POST', body: JSON.stringify({ target_id }) }, true);
+      } catch { /* offline fallback */ }
+    }
   },
 
   async selectStrategy(strategy: string): Promise<void> {
-    await apiFetch(
-      '/strategy/select',
-      {
-        method: 'POST',
-        body: JSON.stringify({ strategy })
-      },
-      true
-    );
+    standaloneSimulation.selectStrategy(strategy);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/strategy/select', { method: 'POST', body: JSON.stringify({ strategy }) }, true);
+      } catch { /* offline fallback */ }
+    }
   },
 
   async getPrediction(objectId?: string, horizon: string = '5m', referenceId?: string): Promise<any> {
-    const params = new URLSearchParams({ horizon });
-    if (objectId) params.append('object_id', objectId);
-    if (referenceId) params.append('reference_id', referenceId);
-    const res = await apiFetch(`/predictions?${params.toString()}`);
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const params = new URLSearchParams({ horizon });
+        if (objectId) params.append('object_id', objectId);
+        if (referenceId) params.append('reference_id', referenceId);
+        const res = await apiFetch(`/predictions?${params.toString()}`);
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.getPrediction(objectId, horizon, referenceId);
   },
 
   async triggerDatasetReplay(maxFrames: number = 150): Promise<void> {
-    await apiFetch(`/dataset/replay?max_frames=${maxFrames}`, { method: 'POST' }, true);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch(`/dataset/replay?max_frames=${maxFrames}`, { method: 'POST' }, true);
+      } catch { /* offline fallback */ }
+    }
   },
 
   getImageUrl(category: string, imageName: string): string {
@@ -133,106 +154,109 @@ export const api = {
   },
 
   async getConfig(): Promise<any> {
-    const res = await apiFetch('/config');
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const res = await apiFetch('/config');
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.getConfig();
   },
 
   async updateConfig(config: { weights?: any; thresholds?: any }): Promise<any> {
-    const res = await apiFetch(
-      '/config',
-      {
-        method: 'POST',
-        body: JSON.stringify(config)
-      },
-      true
-    );
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const res = await apiFetch('/config', { method: 'POST', body: JSON.stringify(config) }, true);
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.updateConfig(config);
   },
 
   async evaluateManeuvers(target_id?: string, screening_distance_km?: number): Promise<any[]> {
-    const res = await apiFetch(
-      '/maneuvers/evaluate',
-      {
-        method: 'POST',
-        body: JSON.stringify({ target_id, screening_distance_km })
-      },
-      true
-    );
-    return res.json();
+    if (screening_distance_km) {
+      standaloneSimulation.setScreeningDistance(screening_distance_km);
+    }
+    return standaloneSimulation.getState().maneuver_candidates || [];
   },
 
   async executeManeuver(candidate_id: string): Promise<any> {
-    const res = await apiFetch(
-      '/maneuvers/execute',
-      {
-        method: 'POST',
-        body: JSON.stringify({ candidate_id })
-      },
-      true
-    );
-    return res.json();
+    const res = standaloneSimulation.executeManeuver(candidate_id);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/maneuvers/execute', { method: 'POST', body: JSON.stringify({ candidate_id }) }, true);
+      } catch { /* offline fallback */ }
+    }
+    return res;
   },
 
   async executeCustomManeuver(dv_x_ms: number, dv_y_ms: number, dv_z_ms: number, name?: string): Promise<any> {
-    const res = await apiFetch(
-      '/maneuvers/custom',
-      {
-        method: 'POST',
-        body: JSON.stringify({ dv_x_ms, dv_y_ms, dv_z_ms, name })
-      },
-      true
-    );
-    return res.json();
+    const res = standaloneSimulation.executeCustomManeuver(dv_x_ms, dv_y_ms, dv_z_ms, name);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/maneuvers/custom', { method: 'POST', body: JSON.stringify({ dv_x_ms, dv_y_ms, dv_z_ms, name }) }, true);
+      } catch { /* offline fallback */ }
+    }
+    return res;
   },
 
   async previewCustomManeuver(dv_x_ms: number, dv_y_ms: number, dv_z_ms: number): Promise<any> {
-    const res = await apiFetch(
-      '/maneuvers/preview_custom',
-      {
-        method: 'POST',
-        body: JSON.stringify({ dv_x_ms, dv_y_ms, dv_z_ms })
-      },
-      true
-    );
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const res = await apiFetch('/maneuvers/preview_custom', { method: 'POST', body: JSON.stringify({ dv_x_ms, dv_y_ms, dv_z_ms }) }, true);
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.previewCustomManeuver(dv_x_ms, dv_y_ms, dv_z_ms);
   },
 
   async stepSimulation(seconds: number = 60): Promise<any> {
-    const res = await apiFetch(
-      '/simulation/step',
-      {
-        method: 'POST',
-        body: JSON.stringify({ seconds })
-      },
-      true
-    );
-    return res.json();
+    const res = standaloneSimulation.stepSimulation(seconds);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/simulation/step', { method: 'POST', body: JSON.stringify({ seconds }) }, true);
+      } catch { /* offline fallback */ }
+    }
+    return res;
   },
 
   async setScreeningDistance(distance_km: number): Promise<void> {
-    await apiFetch(
-      '/simulation/screening_distance',
-      {
-        method: 'POST',
-        body: JSON.stringify({ distance_km })
-      },
-      true
-    );
+    standaloneSimulation.setScreeningDistance(distance_km);
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/simulation/screening_distance', { method: 'POST', body: JSON.stringify({ distance_km }) }, true);
+      } catch { /* offline fallback */ }
+    }
   },
 
   async getMissions(): Promise<any[]> {
-    const res = await apiFetch('/missions');
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const res = await apiFetch('/missions');
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.getMissions();
   },
 
   async getMissionResults(): Promise<any> {
-    const res = await apiFetch('/mission/results');
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const res = await apiFetch('/mission/results');
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.getMissionResults();
   },
 
   async getCatalogueAnalytics(): Promise<any> {
-    const res = await apiFetch('/analytics/catalogue');
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const res = await apiFetch('/analytics/catalogue');
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.getCatalogueAnalytics();
   },
 
   async getEncounterAnalytics(params?: {
@@ -242,26 +266,29 @@ export const api = {
     maneuver_dv_ms?: number;
     lead_time_min?: number;
   }): Promise<any> {
-    const qs = new URLSearchParams();
-    if (params?.days !== undefined) qs.set('days', String(params.days));
-    if (params?.seed !== undefined) qs.set('seed', String(params.seed));
-    if (params?.threshold_km !== undefined) qs.set('threshold_km', String(params.threshold_km));
-    if (params?.maneuver_dv_ms !== undefined) qs.set('maneuver_dv_ms', String(params.maneuver_dv_ms));
-    if (params?.lead_time_min !== undefined) qs.set('lead_time_min', String(params.lead_time_min));
-    const suffix = qs.toString() ? `?${qs.toString()}` : '';
-    const res = await apiFetch(`/analytics/encounters${suffix}`);
-    return res.json();
+    if (USE_LIVE_API) {
+      try {
+        const qs = new URLSearchParams();
+        if (params?.days !== undefined) qs.set('days', String(params.days));
+        if (params?.seed !== undefined) qs.set('seed', String(params.seed));
+        if (params?.threshold_km !== undefined) qs.set('threshold_km', String(params.threshold_km));
+        if (params?.maneuver_dv_ms !== undefined) qs.set('maneuver_dv_ms', String(params.maneuver_dv_ms));
+        if (params?.lead_time_min !== undefined) qs.set('lead_time_min', String(params.lead_time_min));
+        const suffix = qs.toString() ? `?${qs.toString()}` : '';
+        const res = await apiFetch(`/analytics/encounters${suffix}`);
+        return await res.json();
+      } catch { /* offline fallback */ }
+    }
+    return standaloneSimulation.getEncounterAnalytics(params);
   },
 
   async runAutonomousAvoidance(): Promise<any> {
-    const res = await apiFetch(
-      '/autonomous/run',
-      {
-        method: 'POST',
-        body: JSON.stringify({})
-      },
-      true
-    );
-    return res.json();
+    const res = standaloneSimulation.runAutonomousAvoidance();
+    if (USE_LIVE_API) {
+      try {
+        await apiFetch('/autonomous/run', { method: 'POST', body: JSON.stringify({}) }, true);
+      } catch { /* offline fallback */ }
+    }
+    return res;
   }
 };

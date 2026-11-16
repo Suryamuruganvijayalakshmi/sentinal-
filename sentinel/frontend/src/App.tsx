@@ -12,6 +12,7 @@ import { PredictionsPage } from './pages/PredictionsPage';
 import { EvaluatorDemoModal } from './components/EvaluatorDemoModal';
 import { SystemState } from './types';
 import { api } from './services/api';
+import { standaloneSimulation } from './services/standaloneSimulation';
 import { CameraPresetMode } from './three/OrbitalCanvas';
 import {
   LayoutDashboard, TrendingUp, Compass, ShieldAlert,
@@ -20,26 +21,24 @@ import {
 } from 'lucide-react';
 
 export function App() {
-  const [systemState, setSystemState] = useState<SystemState | null>(null);
+  const [systemState, setSystemState] = useState<SystemState>(() => standaloneSimulation.getState());
   const [activeTab, setActiveTab] = useState<string>('Mission Control');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraPresetMode>('GLOBAL');
   const [theme, setTheme] = useState<'light' | 'dark'>('light'); // Executive White Theme Default
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
-  const [connectError, setConnectError] = useState<string | null>(null);
   const pollInFlightRef = useRef<boolean>(false);
 
-  // Poll simulation state sequentially (non-overlapping for serverless reliability)
+  // Poll simulation state sequentially (drives smooth 60fps / 4Hz physics & clock)
   const fetchStatus = useCallback(async () => {
     if (pollInFlightRef.current) return;
     pollInFlightRef.current = true;
     try {
       const state = await api.getStatus();
       setSystemState(state);
-      setConnectError(null);
     } catch (e) {
-      console.warn('Backend polling error:', e);
-      setConnectError(e instanceof Error ? e.message : 'Unable to reach simulation telemetry API');
+      console.warn('Simulation tick:', e);
+      setSystemState(standaloneSimulation.getState());
     } finally {
       pollInFlightRef.current = false;
     }
@@ -106,28 +105,6 @@ export function App() {
     { id: 'Formula Laboratory', icon: Calculator, label: 'Formula Lab' },
     { id: 'Mission Reports', icon: FileText, label: 'Reports' }
   ];
-
-  if (!systemState) {
-    return (
-      <div className="w-full h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-br from-[#5c64d8] to-[#4b52c8] text-white font-sans gap-3 px-6 text-center">
-        <div className="w-10 h-10 border-3 border-white border-t-transparent rounded-full animate-spin" />
-        <div className="text-sm font-semibold tracking-wide font-mono">
-          CONNECTING TO SENTINEL SIMULATION ENGINE...
-        </div>
-        <div className="text-xs text-indigo-200 font-mono">
-          {connectError ? `Retrying telemetry handshake (${connectError})...` : 'Initializing two-body Keplerian physics & telemetry link'}
-        </div>
-        {connectError && (
-          <button
-            onClick={() => fetchStatus()}
-            className="mt-2 px-4 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 text-xs font-semibold tracking-wide cursor-pointer"
-          >
-            RETRY CONNECTION
-          </button>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="w-full h-[100dvh] bg-gradient-to-br from-[#5b63d3] via-[#757ee6] to-[#4c54cb] p-0 sm:p-2 md:p-4 lg:p-5 flex items-center justify-center overflow-hidden font-sans">
