@@ -15,9 +15,8 @@ import { api } from './services/api';
 import { standaloneSimulation } from './services/standaloneSimulation';
 import { CameraPresetMode } from './three/OrbitalCanvas';
 import {
-  LayoutDashboard, TrendingUp, Compass, ShieldAlert,
-  Sliders, ShieldCheck, Calculator, FileText,
-  Power, User, Activity
+  LayoutDashboard, ShieldAlert, Sliders, TrendingUp, FileText,
+  Power, User
 } from 'lucide-react';
 
 export function App() {
@@ -96,13 +95,9 @@ export function App() {
 
   const navItems = [
     { id: 'Mission Control', icon: LayoutDashboard, label: 'Dashboard' },
-    { id: 'Orbital Analytics', icon: TrendingUp, label: 'Analytics' },
-    { id: 'Trajectory Predictions', icon: Activity, label: 'Predictions' },
-    { id: 'Object Explorer', icon: Compass, label: 'Explorer' },
     { id: 'Collision Simulator', icon: ShieldAlert, label: 'Simulator' },
     { id: 'Maneuver Planner', icon: Sliders, label: 'Planner' },
-    { id: 'Verification Center', icon: ShieldCheck, label: 'Verify' },
-    { id: 'Formula Laboratory', icon: Calculator, label: 'Formula Lab' },
+    { id: 'Orbital Analytics', icon: TrendingUp, label: 'Analytics' },
     { id: 'Mission Reports', icon: FileText, label: 'Reports' }
   ];
 
@@ -130,7 +125,7 @@ export function App() {
           </div>
 
           {/* Primary Subsystem Navigation */}
-          <nav className="flex flex-col items-center gap-1.5 w-full my-auto">
+          <nav className="flex flex-col items-center gap-2.5 w-full my-auto">
             {navItems.map(item => {
               const isActive = activeTab === item.id;
               const Icon = item.icon;
@@ -270,7 +265,7 @@ export function App() {
         {/* ── MOBILE BOTTOM NAVIGATION BAR (< md) ── */}
         <nav
           aria-label="Mobile Subsystem Navigation"
-          className="flex md:hidden items-center gap-1 overflow-x-auto no-scrollbar bg-white border-t border-slate-200 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shrink-0 z-30"
+          className="flex md:hidden items-center justify-around overflow-x-auto no-scrollbar bg-white border-t border-slate-200 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shrink-0 z-30"
         >
           {navItems.map(item => {
             const isActive = activeTab === item.id;
