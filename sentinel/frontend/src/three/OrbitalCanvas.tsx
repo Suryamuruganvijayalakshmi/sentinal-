@@ -93,6 +93,7 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
   const thrusterLightRef = useRef<THREE.PointLight | null>(null);
   const targetBeaconRef = useRef<THREE.PointLight | null>(null);
   const maneuverArrowRef = useRef<THREE.ArrowHelper | null>(null);
+  const debrisCloudRef = useRef<THREE.Points | null>(null);
 
   // Lights & Environment refs
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
@@ -127,9 +128,9 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
   const EARTH_RADIUS = 6.378;
 
   // ───────────────────────────────────────────────────────────
-  // High-Fidelity Realistic Procedural Earth Texture Generator
+  // High-Fidelity Realistic Procedural Earth Texture Generator (Day + Night City Lights)
   // ───────────────────────────────────────────────────────────
-  const createPhotorealisticEarthTexture = (): { dayMap: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture } => {
+  const createPhotorealisticEarthTexture = (): { dayMap: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture; nightMap: THREE.CanvasTexture } => {
     const W = 2048;
     const H = 1024;
 
@@ -145,13 +146,21 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
     roughCanvas.height = H;
     const rCtx = roughCanvas.getContext('2d')!;
 
+    // 3. Night Lights Canvas (Glowing City Hubs on Night Hemisphere)
+    const nightCanvas = document.createElement('canvas');
+    nightCanvas.width = W;
+    nightCanvas.height = H;
+    const nCtx = nightCanvas.getContext('2d')!;
+    nCtx.fillStyle = '#020409';
+    nCtx.fillRect(0, 0, W, H);
+
     // A. Deep vibrant ocean gradient
     const oceanGrad = ctx.createLinearGradient(0, 0, 0, H);
-    oceanGrad.addColorStop(0, '#0d3268');
-    oceanGrad.addColorStop(0.2, '#144c8c');
-    oceanGrad.addColorStop(0.5, '#1e68b8');
-    oceanGrad.addColorStop(0.8, '#144c8c');
-    oceanGrad.addColorStop(1, '#0d3268');
+    oceanGrad.addColorStop(0, '#092348');
+    oceanGrad.addColorStop(0.2, '#0f386c');
+    oceanGrad.addColorStop(0.5, '#165296');
+    oceanGrad.addColorStop(0.8, '#0f386c');
+    oceanGrad.addColorStop(1, '#092348');
     ctx.fillStyle = oceanGrad;
     ctx.fillRect(0, 0, W, H);
 
@@ -271,13 +280,91 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
     }
 
+    // ── Generate Night City Light Constellations ──
+    const addCityCluster = (lon: number, lat: number, count: number, radiusPx: number, intensity: number = 0.9) => {
+      const center = toXY(lon, lat);
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.pow(Math.random(), 0.6) * radiusPx;
+        const cx = center.x + Math.cos(angle) * dist;
+        const cy = center.y + Math.sin(angle) * dist;
+        const r = 0.8 + Math.random() * 1.8;
+        const alpha = (0.4 + Math.random() * 0.6) * intensity;
+        
+        nCtx.beginPath();
+        nCtx.arc(cx, cy, r, 0, Math.PI * 2);
+        nCtx.fillStyle = Math.random() > 0.3 ? `rgba(255, 210, 110, ${alpha})` : `rgba(255, 240, 190, ${alpha})`;
+        nCtx.fill();
+      }
+    };
+
+    // Major global metropolitan clusters
+    // North America
+    addCityCluster(-74.0, 40.7, 70, 22, 1.0);  // New York / Bos-Wash
+    addCityCluster(-71.0, 42.3, 30, 12, 0.9);  // Boston
+    addCityCluster(-87.6, 41.8, 50, 18, 0.95); // Chicago
+    addCityCluster(-95.3, 29.7, 45, 16, 0.9);  // Houston
+    addCityCluster(-118.2, 34.0, 60, 20, 0.95); // Los Angeles
+    addCityCluster(-122.4, 37.7, 45, 16, 0.95); // San Francisco
+    addCityCluster(-80.2, 25.7, 35, 12, 0.9);  // Miami
+    addCityCluster(-122.3, 47.6, 30, 12, 0.85); // Seattle
+    addCityCluster(-79.4, 43.6, 40, 14, 0.9);  // Toronto
+    // Europe
+    addCityCluster(-0.1, 51.5, 65, 20, 1.0);   // London
+    addCityCluster(2.3, 48.8, 60, 18, 1.0);    // Paris
+    addCityCluster(4.9, 52.3, 50, 16, 0.95);   // Benelux / Rhine-Ruhr
+    addCityCluster(13.4, 52.5, 45, 14, 0.9);   // Berlin
+    addCityCluster(9.2, 45.4, 40, 14, 0.9);    // Milan
+    addCityCluster(-3.7, 40.4, 35, 12, 0.85);  // Madrid
+    addCityCluster(37.6, 55.7, 50, 18, 0.95);  // Moscow
+    // Asia
+    addCityCluster(139.7, 35.6, 85, 25, 1.0);  // Tokyo megacity
+    addCityCluster(135.5, 34.7, 50, 16, 0.95); // Osaka
+    addCityCluster(127.0, 37.5, 60, 18, 1.0);  // Seoul
+    addCityCluster(121.5, 31.2, 75, 22, 1.0);  // Shanghai
+    addCityCluster(116.4, 39.9, 65, 20, 1.0);  // Beijing
+    addCityCluster(113.2, 23.1, 70, 22, 1.0);  // Pearl River Delta
+    addCityCluster(114.1, 22.3, 45, 12, 1.0);  // Hong Kong
+    addCityCluster(121.5, 25.0, 40, 12, 0.95); // Taipei
+    addCityCluster(103.8, 1.3, 35, 10, 0.95);  // Singapore
+    addCityCluster(72.8, 19.0, 60, 18, 0.95);  // Mumbai
+    addCityCluster(77.2, 28.6, 65, 20, 0.95);  // Delhi
+    addCityCluster(77.6, 12.9, 45, 14, 0.9);   // Bangalore
+    addCityCluster(88.3, 22.5, 40, 14, 0.85);  // Kolkata
+    // Middle East & Africa
+    addCityCluster(55.3, 25.2, 45, 14, 1.0);   // Dubai
+    addCityCluster(46.7, 24.7, 35, 12, 0.9);   // Riyadh
+    addCityCluster(31.2, 30.0, 50, 16, 0.95);  // Cairo & Nile ribbon
+    addCityCluster(18.4, -33.9, 30, 12, 0.85); // Cape Town
+    addCityCluster(28.0, -26.2, 40, 14, 0.9);  // Johannesburg
+    // South America & Oceania
+    addCityCluster(-46.6, -23.5, 60, 20, 0.95); // Sao Paulo
+    addCityCluster(-43.1, -22.9, 45, 16, 0.9);  // Rio de Janeiro
+    addCityCluster(-58.3, -34.6, 50, 16, 0.9);  // Buenos Aires
+    addCityCluster(151.2, -33.8, 45, 16, 0.9);  // Sydney
+    addCityCluster(144.9, -37.8, 40, 14, 0.9);  // Melbourne
+
+    // Random highway / small settlement web
+    for (let s = 0; s < 450; s++) {
+      const rx = Math.random() * W;
+      const ry = Math.random() * H;
+      nCtx.beginPath();
+      nCtx.arc(rx, ry, Math.random() * 1.1, 0, Math.PI * 2);
+      nCtx.fillStyle = 'rgba(255, 205, 100, 0.4)';
+      nCtx.fill();
+    }
+
     const dayMap = new THREE.CanvasTexture(canvas);
     dayMap.generateMipmaps = true;
     dayMap.minFilter = THREE.LinearMipmapLinearFilter;
 
     const roughnessMap = new THREE.CanvasTexture(roughCanvas);
 
-    return { dayMap, roughnessMap };
+    const nightMap = new THREE.CanvasTexture(nightCanvas);
+    nightMap.generateMipmaps = true;
+    nightMap.minFilter = THREE.LinearMipmapLinearFilter;
+
+    return { dayMap, roughnessMap, nightMap };
   };
 
   // ───────────────────────────────────────────────────────────
@@ -444,18 +531,108 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
     scene.add(starsPoints);
     starsPointsRef.current = starsPoints;
 
-    // 6. Photorealistic Procedural Earth Mesh
-    const { dayMap, roughnessMap } = createPhotorealisticEarthTexture();
+    // 6. Photorealistic Procedural Earth Mesh (Day & Glowing Night City Lights)
+    const { dayMap, roughnessMap, nightMap } = createPhotorealisticEarthTexture();
     const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
     const earthMat = new THREE.MeshStandardMaterial({
       map: dayMap,
       roughnessMap: roughnessMap,
       roughness: 0.7,
-      metalness: 0.12
+      metalness: 0.12,
+      emissive: new THREE.Color(0xffd580),
+      emissiveMap: nightMap,
+      emissiveIntensity: isLight ? 0.25 : 1.35
     });
     const earth = new THREE.Mesh(earthGeo, earthMat);
     scene.add(earth);
     earthMeshRef.current = earth;
+
+    // 6B. Dense LEO Debris Swarm Cloud (Thousands of luminous debris fragments)
+    const debrisCount = 3800;
+    const debrisGeo = new THREE.BufferGeometry();
+    const debPos = new Float32Array(debrisCount * 3);
+    const debColors = new Float32Array(debrisCount * 3);
+
+    for (let i = 0; i < debrisCount; i++) {
+      const r = 6.78 + Math.pow(Math.random(), 1.5) * 1.35;
+      const trueAnomaly = Math.random() * Math.PI * 2;
+      
+      const roll = Math.random();
+      let incRad: number;
+      if (roll < 0.42) {
+        incRad = (53.0 + (Math.random() - 0.5) * 8.0) * (Math.PI / 180);
+      } else if (roll < 0.72) {
+        incRad = (98.0 + (Math.random() - 0.5) * 6.0) * (Math.PI / 180);
+      } else if (roll < 0.88) {
+        incRad = (74.0 + (Math.random() - 0.5) * 6.0) * (Math.PI / 180);
+      } else {
+        incRad = (28.5 + (Math.random() - 0.5) * 12.0) * (Math.PI / 180);
+      }
+      const raan = Math.random() * Math.PI * 2;
+
+      const xp = r * Math.cos(trueAnomaly);
+      const yp = r * Math.sin(trueAnomaly);
+
+      const x = xp * Math.cos(raan) - yp * Math.cos(incRad) * Math.sin(raan);
+      const z = xp * Math.sin(raan) + yp * Math.cos(incRad) * Math.cos(raan);
+      const y = yp * Math.sin(incRad);
+
+      debPos[i * 3] = x;
+      debPos[i * 3 + 1] = y;
+      debPos[i * 3 + 2] = z;
+
+      const cRoll = Math.random();
+      if (cRoll < 0.55) {
+        debColors[i * 3] = 1.0; debColors[i * 3 + 1] = 0.65; debColors[i * 3 + 2] = 0.12; // Amber
+      } else if (cRoll < 0.82) {
+        debColors[i * 3] = 0.95; debColors[i * 3 + 1] = 0.32; debColors[i * 3 + 2] = 0.05; // Orange
+      } else if (cRoll < 0.94) {
+        debColors[i * 3] = 1.0; debColors[i * 3 + 1] = 0.88; debColors[i * 3 + 2] = 0.25; // Golden
+      } else {
+        debColors[i * 3] = 0.15; debColors[i * 3 + 1] = 0.85; debColors[i * 3 + 2] = 1.0; // Cyan
+      }
+    }
+    debrisGeo.setAttribute('position', new THREE.BufferAttribute(debPos, 3));
+    debrisGeo.setAttribute('color', new THREE.BufferAttribute(debColors, 3));
+
+    const dotCanvas = document.createElement('canvas');
+    dotCanvas.width = 32;
+    dotCanvas.height = 32;
+    const dotCtx = dotCanvas.getContext('2d')!;
+    const radGrad = dotCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    radGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    radGrad.addColorStop(0.35, 'rgba(255, 200, 120, 0.8)');
+    radGrad.addColorStop(1, 'rgba(255, 120, 30, 0)');
+    dotCtx.fillStyle = radGrad;
+    dotCtx.fillRect(0, 0, 32, 32);
+    const dotTexture = new THREE.CanvasTexture(dotCanvas);
+
+    const debrisMat = new THREE.PointsMaterial({
+      size: 2.2,
+      map: dotTexture,
+      vertexColors: true,
+      transparent: true,
+      opacity: isLight ? 0.45 : 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: false
+    });
+    const debrisPoints = new THREE.Points(debrisGeo, debrisMat);
+    scene.add(debrisPoints);
+    debrisCloudRef.current = debrisPoints;
+
+    // 6C. LEO Circular Reference Ring with glowing cyan tone
+    const leoRingGeo = new THREE.RingGeometry(7.14, 7.16, 128);
+    const leoRingMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.45,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending
+    });
+    const leoRing = new THREE.Mesh(leoRingGeo, leoRingMat);
+    leoRing.rotation.x = Math.PI / 2;
+    scene.add(leoRing);
 
     // 7. Rotating Cloud Sphere
     const cloudTex = createPhotorealisticCloudTexture();
@@ -651,6 +828,7 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
       const earthSiderealRad = (liveSimTime * Math.PI * 2) / 86164.0905;
       if (earthMeshRef.current) earthMeshRef.current.rotation.y = earthSiderealRad;
       if (cloudsRef.current) cloudsRef.current.rotation.y = earthSiderealRad + elapsedTime * 0.008;
+      if (debrisCloudRef.current) debrisCloudRef.current.rotation.y = elapsedTime * 0.012;
 
       const {
         objects: curObjects,
@@ -924,6 +1102,7 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
       ambientLightRef.current = null;
       fillLightRef.current = null;
       starsPointsRef.current = null;
+      debrisCloudRef.current = null;
       sceneRef.current = null;
       cameraRef.current = null;
       rendererRef.current = null;
@@ -1320,12 +1499,15 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
       const tProj = segLenSq > 1e-8 ? Math.max(0, Math.min(1, -p1.dot(seg) / segLenSq)) : 0;
       const closestToCenter = p1.clone().add(seg.multiplyScalar(tProj)).length();
 
+      const isConjunctionThreat = risks && risks.some(r => r.risk_level === 'CRITICAL' || r.risk_level === 'HIGH');
       const rGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
       const rMat = new THREE.LineDashedMaterial({
-        color: 0xd97706,
-        dashSize: 0.3,
+        color: isConjunctionThreat ? 0xff2244 : 0x00f0ff,
+        dashSize: 0.35,
         gapSize: 0.15,
-        linewidth: 2
+        linewidth: 2.5,
+        transparent: true,
+        opacity: 0.95
       });
       const rLine = new THREE.Line(rGeo, rMat);
       rLine.computeLineDistances();
@@ -1487,26 +1669,27 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
             <div style={{
               position: 'absolute',
               left: `${tagCoords.sentinel.x}px`,
-              top: `${tagCoords.sentinel.y - 36}px`,
+              top: `${tagCoords.sentinel.y - 38}px`,
               transform: 'translate(-50%, -100%)',
-              background: isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(3, 8, 20, 0.88)',
+              background: 'rgba(10, 22, 36, 0.92)',
               backdropFilter: 'blur(8px)',
-              border: `1px solid ${isLight ? '#2563eb' : '#00f0ff'}`,
-              boxShadow: isLight ? '0 4px 14px rgba(37, 99, 235, 0.15)' : '0 0 16px rgba(0,240,255,0.4)',
+              border: '1px solid #f59e0b',
+              boxShadow: '0 0 16px rgba(245, 158, 11, 0.45)',
               padding: '4px 10px',
               borderRadius: 6,
-              fontFamily: 'var(--font-mono)',
+              fontFamily: 'monospace',
               fontSize: '11px',
-              color: isLight ? '#0f172a' : '#00f0ff',
+              color: '#fbbf24',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none'
             }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: isLight ? '#2563eb' : '#00f0ff' }} />
-              <strong style={{ letterSpacing: '0.04em' }}>SENTINEL-01</strong>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 8px #f59e0b' }} />
+              <strong style={{ letterSpacing: '0.04em' }}>SAT-A34 'SENTINEL'</strong>
               {tagCoords.sentinel.distToTarget && (
-                <span style={{ color: '#d97706', paddingLeft: 6, borderLeft: '1px solid rgba(0,0,0,0.1)' }}>
+                <span style={{ color: '#00f0ff', paddingLeft: 6, borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
                   Δ {tagCoords.sentinel.distToTarget}
                 </span>
               )}
@@ -1518,24 +1701,25 @@ export const OrbitalCanvas: React.FC<OrbitalCanvasProps> = ({
             <div style={{
               position: 'absolute',
               left: `${tagCoords.target.x}px`,
-              top: `${tagCoords.target.y - 36}px`,
+              top: `${tagCoords.target.y - 38}px`,
               transform: 'translate(-50%, -100%)',
-              background: isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(20, 8, 5, 0.88)',
+              background: 'rgba(28, 8, 12, 0.92)',
               backdropFilter: 'blur(8px)',
-              border: `1px solid ${isLight ? '#d97706' : '#f59e0b'}`,
-              boxShadow: isLight ? '0 4px 14px rgba(217, 119, 6, 0.15)' : '0 0 16px rgba(245,158,11,0.4)',
+              border: '1px solid #ef4444',
+              boxShadow: '0 0 18px rgba(239, 68, 68, 0.55)',
               padding: '4px 10px',
               borderRadius: 6,
-              fontFamily: 'var(--font-mono)',
+              fontFamily: 'monospace',
               fontSize: '11px',
-              color: isLight ? '#0f172a' : '#f59e0b',
+              color: '#f87171',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none'
             }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706' }} />
-              <strong style={{ letterSpacing: '0.04em' }}>TARGET: {tagCoords.target.name}</strong>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+              <strong style={{ letterSpacing: '0.04em' }}>DEBRIS #8871 [FLASHING VECTOR] CLOSE APPROACH</strong>
             </div>
           )}
 
