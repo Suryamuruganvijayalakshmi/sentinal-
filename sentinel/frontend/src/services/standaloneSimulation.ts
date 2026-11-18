@@ -143,6 +143,43 @@ class StandaloneSimulation {
       this.state.risks[0].relative_speed_kms = 8.12;
       this.state.risks[0].risk_level = 'CRITICAL';
     }
+
+    this.seedTelemetry(true, canAvoid);
+  }
+
+  private seedTelemetry(isConjunction: boolean, canAvoid: boolean): void {
+    const pts: any[] = [];
+    const nowSim = this.state.clock.sim_time;
+    for (let i = 0; i < 40; i++) {
+      const t = Number((nowSim - (40 - i) * 0.25).toFixed(2));
+      const alt = Number((600.0 + Math.sin(i * 0.2) * 0.4).toFixed(2));
+      let dist = 14158.0;
+      let prob = 0.0001;
+      if (isConjunction) {
+        dist = Math.max(0, 244.0 + (40 - i) * 1.5);
+        prob = 96.5 + (i / 40.0) * 1.7;
+      }
+      pts.push({
+        sim_time: t,
+        pos_x: 6978.137 * Math.cos(i * 0.05),
+        pos_y: 6978.137 * Math.sin(i * 0.05),
+        pos_z: 0.0,
+        vel_x: -7.558 * Math.sin(i * 0.05),
+        vel_y: 7.558 * Math.cos(i * 0.05),
+        vel_z: 0.0,
+        altitude: alt,
+        target_dist: Number(dist.toFixed(2)),
+        target_rel_vel: 8.12,
+        fuel_kg: canAvoid ? 148.7 : 0.2,
+        battery_pct: 98.5,
+        collision_prob: Number(prob.toFixed(2)),
+        phase: 'PATROL',
+        delta_r: Number((Math.sin(i * 0.25) * 1.2 + 2.5).toFixed(2)),
+        delta_t: Number((Math.cos(i * 0.2) * 2.0 + 4.0).toFixed(2)),
+        delta_w: Number((Math.sin(i * 0.15) * 0.8 + 1.5).toFixed(2))
+      });
+    }
+    this.state.telemetry = pts;
   }
 
   public getState(): SystemState {
@@ -292,12 +329,21 @@ class StandaloneSimulation {
       obj.position_z = ph.r * Math.sin(curAng) * Math.sin(ph.inc);
     }
 
-    // Append downsampled telemetry point
+    // Append high-frequency telemetry point (5Hz sampling for real-time moving charts)
     const hist = this.state.telemetry || [];
     const lastT = hist.length > 0 ? hist[hist.length - 1].sim_time : -999;
-    if (clock.sim_time - lastT >= 1.0 && sentinel) {
+    if (clock.sim_time - lastT >= 0.20 && sentinel) {
+      const curDist = sentinel.target_distance_km ?? 0;
+      const curProb = !this.isConjunctionScenario
+        ? 0.0001
+        : this.state.executed_maneuver
+        ? 0.0001
+        : this.encounterElapsedS >= 20.0
+        ? 100.0
+        : Math.min(99.9, Math.max(90.0, 99.9 - (curDist / 244.0) * 12.0));
+
       hist.push({
-        sim_time: Number(clock.sim_time.toFixed(1)),
+        sim_time: Number(clock.sim_time.toFixed(2)),
         pos_x: sentinel.position_x,
         pos_y: sentinel.position_y,
         pos_z: sentinel.position_z,
@@ -305,13 +351,17 @@ class StandaloneSimulation {
         vel_y: sentinel.velocity_y,
         vel_z: sentinel.velocity_z,
         altitude: Number(sentinel.altitude.toFixed(2)),
-        target_dist: sentinel.target_distance_km || 0,
-        target_rel_vel: sentinel.target_rel_velocity_kms || 0,
+        target_dist: Number(curDist.toFixed(2)),
+        target_rel_vel: Number((sentinel.target_rel_velocity_kms || 8.12).toFixed(2)),
         fuel_kg: Number((sentinel.fuel_kg ?? 148.7).toFixed(2)),
         battery_pct: Number((sentinel.battery_pct ?? 98.5).toFixed(1)),
-        phase: sentinel.mission_phase || this.state.mission.phase || 'PATROL'
+        collision_prob: Number(curProb.toFixed(2)),
+        phase: sentinel.mission_phase || this.state.mission.phase || 'PATROL',
+        delta_r: Number((Math.abs(sentinel.position_x - (target?.position_x || 0)) * 0.005 + 1.2).toFixed(2)),
+        delta_t: Number((Math.abs(sentinel.position_y - (target?.position_y || 0)) * 0.005 + 2.1).toFixed(2)),
+        delta_w: Number((Math.abs(sentinel.position_z - (target?.position_z || 0)) * 0.005 + 0.8).toFixed(2))
       });
-      if (hist.length > 300) hist.shift();
+      if (hist.length > 50) hist.shift();
       this.state.telemetry = hist;
     }
 
@@ -353,6 +403,7 @@ class StandaloneSimulation {
       this.state.executed_maneuver = null;
       this.isConjunctionScenario = false;
       this.initCatalogOrbits();
+      this.seedTelemetry(false, true);
     } else if (scLower.includes('no acceptable') || scLower.includes('scenario 3')) {
       this.state = deepClone(scenario3Json as unknown as SystemState);
       this.state.clock.scenario_name = 'Scenario 3: No Acceptable Maneuver';

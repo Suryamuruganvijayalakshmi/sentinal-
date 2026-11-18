@@ -42,6 +42,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
   const [isStepping, setIsStepping] = useState<boolean>(false);
   const [screeningInput, setScreeningInput] = useState<number>(screening_distance_km);
   const [cameraMode, setCameraMode] = useState<CameraPresetMode>('GLOBAL');
+  const [chartMetric, setChartMetric] = useState<'range' | 'prob' | 'alt'>('range');
 
   useEffect(() => {
     setScreeningInput(screening_distance_km);
@@ -328,14 +329,44 @@ export const Simulator: React.FC<SimulatorProps> = ({
           {/* Right: Live Range Telemetry Chart & Event Log (5 cols) */}
           <div className="lg:col-span-5 flex flex-col gap-4 min-w-0">
             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col gap-2">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-2 gap-2">
+                <div className="flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-indigo-600" />
-                  Live Range to Threat (km) Over Time
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {telemetry.length} samples @ 1 Hz
-                </span>
+                  <span className="text-xs font-bold text-slate-900">
+                    Live Telemetry Stream
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    (5Hz Live Sync • {telemetry.length} pts)
+                  </span>
+                </div>
+
+                {/* Metric Selector Pills */}
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold font-mono">
+                  <button
+                    onClick={() => setChartMetric('range')}
+                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                      chartMetric === 'range' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Range (km)
+                  </button>
+                  <button
+                    onClick={() => setChartMetric('prob')}
+                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                      chartMetric === 'prob' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Prob (%)
+                  </button>
+                  <button
+                    onClick={() => setChartMetric('alt')}
+                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                      chartMetric === 'alt' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Alt (km)
+                  </button>
+                </div>
               </div>
 
               <div className="w-full h-[195px]">
@@ -347,22 +378,42 @@ export const Simulator: React.FC<SimulatorProps> = ({
                           <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25} />
                           <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.02} />
                         </linearGradient>
+                        <linearGradient id="simProbGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.02} />
+                        </linearGradient>
+                        <linearGradient id="simAltGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                        </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis dataKey="sim_time" tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={v => `${v}s`} />
-                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} width={46} />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: '#64748b' }}
+                        width={46}
+                        domain={chartMetric === 'prob' ? [0, 100] : chartMetric === 'alt' ? ['dataMin - 5', 'dataMax + 5'] : ['auto', 'auto']}
+                      />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#fff', borderColor: '#cbd5e1', borderRadius: 10, fontSize: 11 }}
-                        formatter={(v: any) => [`${v} km`, 'Range']}
+                        formatter={(v: any) => [
+                          chartMetric === 'range' ? `${v} km` : chartMetric === 'prob' ? `${v}%` : `${v} km`,
+                          chartMetric === 'range' ? 'Target Range' : chartMetric === 'prob' ? 'Collision Prob' : 'Altitude'
+                        ]}
                         labelFormatter={l => `T+${l}s`}
                       />
-                      <ReferenceLine y={screeningInput} stroke="#dc2626" strokeDasharray="4 4" />
+                      {chartMetric === 'range' && (
+                        <ReferenceLine y={screeningInput} stroke="#dc2626" strokeDasharray="4 4" label={{ value: '25km Gate', fill: '#dc2626', fontSize: 9 }} />
+                      )}
+                      {chartMetric === 'prob' && (
+                        <ReferenceLine y={95} stroke="#dc2626" strokeDasharray="4 4" label={{ value: 'Critical', fill: '#dc2626', fontSize: 9 }} />
+                      )}
                       <Area
                         type="monotone"
-                        dataKey="target_dist"
-                        stroke="#4f46e5"
+                        dataKey={chartMetric === 'range' ? 'target_dist' : chartMetric === 'prob' ? 'collision_prob' : 'altitude'}
+                        stroke={chartMetric === 'range' ? '#4f46e5' : chartMetric === 'prob' ? '#ef4444' : '#10b981'}
                         strokeWidth={2}
-                        fill="url(#simRangeGrad)"
+                        fill={chartMetric === 'range' ? 'url(#simRangeGrad)' : chartMetric === 'prob' ? 'url(#simProbGrad)' : 'url(#simAltGrad)'}
                         isAnimationActive={false}
                       />
                     </AreaChart>

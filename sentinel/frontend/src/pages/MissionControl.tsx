@@ -43,7 +43,8 @@ export const MissionControl: React.FC<MissionControlProps> = ({
     screening_distance_km = 25.0,
     maneuver_candidates = [],
     selected_candidate,
-    executed_maneuver
+    executed_maneuver,
+    telemetry = []
   } = systemState;
 
   // View Mode: Default to EXECUTIVE ("in the beginning of the dashboard use the other pages layout and theme")
@@ -336,6 +337,88 @@ export const MissionControl: React.FC<MissionControlProps> = ({
   const tMinusSeconds = tCpaRemainingS % 60;
   const tMinusStr = `00:${String(tMinusMinutes).padStart(2, '0')}:${String(tMinusSeconds).padStart(2, '0')}`;
 
+  // ── REAL-TIME MOVING TELEMETRY CHARTS (EXECUTIVE OSCILLOGRAM & TACTICAL ODTS) ──
+  const execChartData = useMemo(() => {
+    const pts = (telemetry && telemetry.length > 0) ? telemetry.slice(-40) : [];
+    if (pts.length === 0) return null;
+    const w = 320;
+    const h = 56;
+    const padding = 6;
+    const effectiveH = h - padding * 2;
+    const maxRange = Math.max(250, ...pts.map(p => p.target_dist || 0));
+    const rangeSpan = Math.max(1, maxRange);
+
+    const coords = pts.map((p, i) => {
+      const x = pts.length > 1 ? (i / (pts.length - 1)) * w : 0;
+      const yVal = Math.min(maxRange, Math.max(0, p.target_dist || 0));
+      const y = h - padding - (yVal / rangeSpan) * effectiveH;
+      return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)), val: yVal };
+    });
+
+    const lineD = coords.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`, '');
+    const areaD = coords.length > 0
+      ? `${lineD} L ${coords[coords.length - 1].x} ${h} L ${coords[0].x} ${h} Z`
+      : '';
+
+    const thresholdY = Number((h - padding - (screening_distance_km / rangeSpan) * effectiveH).toFixed(1));
+    const lastPoint = coords.length > 0 ? coords[coords.length - 1] : null;
+
+    return { lineD, areaD, thresholdY, lastPoint, coords };
+  }, [telemetry, screening_distance_km]);
+
+  const tacticalProbChart = useMemo(() => {
+    const pts = (telemetry && telemetry.length > 0) ? telemetry.slice(-40) : [];
+    if (pts.length === 0) return null;
+    const w = 240;
+    const h = 46;
+    const padding = 4;
+    const effectiveH = h - padding * 2;
+
+    const coords = pts.map((p, i) => {
+      const x = pts.length > 1 ? (i / (pts.length - 1)) * w : 0;
+      const rawProb = isCollided ? 100 : isVerified ? 0.001 : (p.collision_prob ?? (isThreatActive ? 98.2 : 0.001));
+      const prob = Math.min(100, Math.max(0, rawProb));
+      const y = h - padding - (prob / 100) * effectiveH;
+      return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)), prob };
+    });
+
+    const lineD = coords.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`, '');
+    const areaD = coords.length > 0
+      ? `${lineD} L ${coords[coords.length - 1].x} ${h} L ${coords[0].x} ${h} Z`
+      : '';
+    const lastPoint = coords.length > 0 ? coords[coords.length - 1] : null;
+    const latestVal = lastPoint ? lastPoint.prob : (isCollided ? 100 : isVerified ? 0.001 : 98.2);
+
+    return { lineD, areaD, lastPoint, latestVal };
+  }, [telemetry, isCollided, isVerified, isThreatActive]);
+
+  const tacticalDistChart = useMemo(() => {
+    const pts = (telemetry && telemetry.length > 0) ? telemetry.slice(-40) : [];
+    if (pts.length === 0) return null;
+    const w = 240;
+    const h = 42;
+    const padding = 4;
+    const effectiveH = h - padding * 2;
+    const maxDist = Math.max(250, ...pts.map(p => p.target_dist || 0));
+    const distSpan = Math.max(1, maxDist);
+
+    const coords = pts.map((p, i) => {
+      const x = pts.length > 1 ? (i / (pts.length - 1)) * w : 0;
+      const rawDist = isCollided ? 0 : isVerified ? 30.5 : (p.target_dist ?? 0);
+      const dist = Math.min(maxDist, Math.max(0, rawDist));
+      const y = h - padding - (dist / distSpan) * effectiveH;
+      return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)), dist };
+    });
+
+    const lineD = coords.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`, '');
+    const areaD = coords.length > 0
+      ? `${lineD} L ${coords[coords.length - 1].x} ${h} L ${coords[0].x} ${h} Z`
+      : '';
+    const lastPoint = coords.length > 0 ? coords[coords.length - 1] : null;
+
+    return { lineD, areaD, lastPoint };
+  }, [telemetry, isCollided, isVerified]);
+
   // Live Orbital Catalogue Screening Rows
   const buildTrackedCatalogueRows = () => {
     const satAlt = sentinel?.altitude ?? 600.0;
@@ -602,6 +685,84 @@ export const MissionControl: React.FC<MissionControlProps> = ({
                       <div className="h-full bg-[#f43f5e] rounded-full transition-all duration-300" style={{ width: `${violationPct}%` }} />
                     </div>
                     <span className="w-8 sm:w-9 text-right text-rose-500 font-mono text-[11px] font-bold">{violationPct}%</span>
+                  </div>
+                </div>
+
+                {/* ── LIVE MOVING OSCILLOGRAM (SYNCHRONIZED WITH SATELLITE 3D ORBIT AT 5Hz) ── */}
+                <div className="bg-slate-50/90 border border-slate-100 rounded-2xl p-2.5 sm:p-3 flex flex-col gap-1.5 mt-1">
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="flex items-center gap-1.5 font-bold text-slate-700">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
+                      </span>
+                      <span>LIVE RANGE TO THREAT OSCILLOGRAM</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      5Hz ORBIT SYNC • T+{simTime.toFixed(1)}s
+                    </span>
+                  </div>
+
+                  <div className="w-full h-14 relative bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs">
+                    {execChartData && execChartData.coords.length > 1 ? (
+                      <svg className="w-full h-full" viewBox="0 0 320 56" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="execRangeGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={isCollided ? '#ef4444' : isVerified ? '#10b981' : '#4f46e5'} stopOpacity={0.25} />
+                            <stop offset="100%" stopColor={isCollided ? '#ef4444' : isVerified ? '#10b981' : '#4f46e5'} stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        {/* Horizontal gridlines */}
+                        <line x1="0" y1="14" x2="320" y2="14" stroke="#f1f5f9" strokeDasharray="3 3" />
+                        <line x1="0" y1="28" x2="320" y2="28" stroke="#f1f5f9" strokeDasharray="3 3" />
+                        <line x1="0" y1="42" x2="320" y2="42" stroke="#f1f5f9" strokeDasharray="3 3" />
+
+                        {/* 25 km Screening Boundary */}
+                        <line x1="0" y1={execChartData.thresholdY} x2="320" y2={execChartData.thresholdY} stroke="#f43f5e" strokeWidth="1" strokeDasharray="4 2" />
+
+                        {/* Area and Line */}
+                        <path d={execChartData.areaD} fill="url(#execRangeGrad)" />
+                        <path
+                          d={execChartData.lineD}
+                          fill="none"
+                          stroke={isCollided ? '#ef4444' : isVerified ? '#10b981' : '#4f46e5'}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {/* Live head beacon */}
+                        {execChartData.lastPoint && (
+                          <g>
+                            <circle
+                              cx={execChartData.lastPoint.x}
+                              cy={execChartData.lastPoint.y}
+                              r="5"
+                              fill={isCollided ? '#ef4444' : isVerified ? '#10b981' : '#4f46e5'}
+                              fillOpacity="0.3"
+                              className="animate-ping"
+                            />
+                            <circle
+                              cx={execChartData.lastPoint.x}
+                              cy={execChartData.lastPoint.y}
+                              r="2.5"
+                              fill={isCollided ? '#ef4444' : isVerified ? '#10b981' : '#4f46e5'}
+                            />
+                          </g>
+                        )}
+                      </svg>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 font-mono">
+                        INITIALIZING SATELLITE TELEMETRY BUFFER...
+                      </div>
+                    )}
+
+                    <div className="absolute top-1 left-2 text-[8px] font-mono text-slate-400">
+                      GATE: <span className="font-bold text-rose-500">{screening_distance_km.toFixed(0)}km</span>
+                    </div>
+                    <div className="absolute bottom-1 right-2 text-[9px] font-mono font-bold text-slate-700">
+                      RANGE: {currentDistDisplay}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1335,6 +1496,47 @@ export const MissionControl: React.FC<MissionControlProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Threat Alerts Real-Time Encounter Table (from ODTS reference) */}
+          <div className="bg-[#050c18]/90 backdrop-blur-md border border-cyan-500/25 rounded-lg p-2 text-[10px] shadow-lg">
+            <div className="flex items-center justify-between text-cyan-400 font-bold border-b border-cyan-500/20 pb-1 mb-1 text-[9px] tracking-wider">
+              <span>THREAT ALERTS</span>
+              <span className="text-cyan-500/80 font-mono">LIVE ECI</span>
+            </div>
+            <div className="grid grid-cols-12 text-[8px] text-cyan-500 font-bold mb-1 border-b border-cyan-500/10 pb-0.5">
+              <span className="col-span-7">EVENT</span>
+              <span className="col-span-5 text-right">EVENT ID</span>
+            </div>
+            <div className="flex flex-col gap-1 text-[9px]">
+              <div className={`p-1 rounded flex items-center justify-between ${
+                isCollided ? 'bg-rose-950/80 border border-rose-500 text-rose-300' :
+                isThreatActive ? 'bg-rose-950/50 border border-rose-500/60 text-rose-200 animate-pulse' :
+                'bg-emerald-950/40 border border-emerald-500/30 text-emerald-300'
+              }`}>
+                <div className="flex items-center gap-1 truncate">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isThreatActive ? 'bg-rose-500 animate-ping' : 'bg-emerald-400'}`} />
+                  <span className="font-bold truncate">DEBRIS #8871</span>
+                </div>
+                <span className="font-mono text-[8px] font-bold text-rose-400 shrink-0">
+                  {isCollided ? 'IMPACT' : isThreatActive ? '49127' : 'CLEARED'}
+                </span>
+              </div>
+              <div className="px-1 py-0.5 flex items-center justify-between text-slate-400">
+                <div className="flex items-center gap-1 truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <span className="truncate">DEBRIS #8872</span>
+                </div>
+                <span className="font-mono text-[8px] text-amber-300 shrink-0">00.8m</span>
+              </div>
+              <div className="px-1 py-0.5 flex items-center justify-between text-slate-400">
+                <div className="flex items-center gap-1 truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <span className="truncate">DEBRIS #8873</span>
+                </div>
+                <span className="font-mono text-[8px] text-amber-300 shrink-0">20.8m</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* TOP RIGHT HUD: COLLISION WARNING CARD */}
@@ -1379,8 +1581,90 @@ export const MissionControl: React.FC<MissionControlProps> = ({
               </div>
             </div>
 
+            {/* ── PROBABILITY TREND LIVE MOVING CHART ── */}
+            <div className="mt-1 pt-1.5 border-t border-rose-500/20">
+              <div className="flex items-center justify-between text-[9px] font-mono text-rose-300 font-bold mb-1">
+                <span>PROBABILITY TREND</span>
+                <span className="text-rose-400 font-bold">
+                  {isCollided ? '100%' : isVerified ? '0.001%' : `${(tacticalProbChart?.latestVal ?? 98.2).toFixed(1)}%`}
+                </span>
+              </div>
+              <div className="w-full h-11 bg-black/50 rounded border border-rose-500/30 overflow-hidden relative">
+                {tacticalProbChart && tacticalProbChart.areaD ? (
+                  <svg className="w-full h-full" viewBox="0 0 240 46" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="tacticalProbGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity="0.8" />
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity="0.05" />
+                      </linearGradient>
+                    </defs>
+                    <line x1="0" y1="12" x2="240" y2="12" stroke="#ef4444" strokeOpacity="0.15" strokeDasharray="3 3" />
+                    <line x1="0" y1="24" x2="240" y2="24" stroke="#ef4444" strokeOpacity="0.15" strokeDasharray="3 3" />
+                    <line x1="0" y1="36" x2="240" y2="36" stroke="#ef4444" strokeOpacity="0.15" strokeDasharray="3 3" />
+                    <path d={tacticalProbChart.areaD} fill="url(#tacticalProbGrad)" />
+                    <path d={tacticalProbChart.lineD} fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+                    {tacticalProbChart.lastPoint && (
+                      <circle cx={tacticalProbChart.lastPoint.x} cy={tacticalProbChart.lastPoint.y} r="2.5" fill="#fca5a5" />
+                    )}
+                  </svg>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[8px] text-rose-500/60 font-mono">
+                    BUFFERING TREND...
+                  </div>
+                )}
+                <div className="absolute bottom-0.5 left-1 right-1 flex justify-between text-[7px] text-rose-400/60 font-mono">
+                  <span>00</span>
+                  <span>60</span>
+                  <span>120</span>
+                  <span>180</span>
+                  <span>240</span>
+                  <span>300</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── MIN DISTANCE LIVE MOVING CHART ── */}
+            <div className="mt-1 pt-1.5 border-t border-cyan-500/20">
+              <div className="flex items-center justify-between text-[9px] font-mono text-cyan-300 font-bold mb-1">
+                <span>MIN DISTANCE: {isCollided ? '0.0m' : isVerified ? `${predictedCpaKm.toFixed(1)}km` : `${(predictedCpaKm * 1000).toFixed(0)}m`}</span>
+                <span className="text-cyan-400 font-bold font-mono">d_CPA</span>
+              </div>
+              <div className="w-full h-11 bg-black/50 rounded border border-cyan-500/30 overflow-hidden relative">
+                {tacticalDistChart && tacticalDistChart.areaD ? (
+                  <svg className="w-full h-full" viewBox="0 0 240 42" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="tacticalDistGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.5" />
+                        <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <line x1="0" y1="11" x2="240" y2="11" stroke="#06b6d4" strokeOpacity="0.15" strokeDasharray="3 3" />
+                    <line x1="0" y1="22" x2="240" y2="22" stroke="#06b6d4" strokeOpacity="0.15" strokeDasharray="3 3" />
+                    <line x1="0" y1="33" x2="240" y2="33" stroke="#06b6d4" strokeOpacity="0.15" strokeDasharray="3 3" />
+                    <path d={tacticalDistChart.areaD} fill="url(#tacticalDistGrad)" />
+                    <path d={tacticalDistChart.lineD} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" />
+                    {tacticalDistChart.lastPoint && (
+                      <circle cx={tacticalDistChart.lastPoint.x} cy={tacticalDistChart.lastPoint.y} r="2.5" fill="#a5f3fc" />
+                    )}
+                  </svg>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[8px] text-cyan-500/60 font-mono">
+                    BUFFERING RANGE...
+                  </div>
+                )}
+                <div className="absolute bottom-0.5 left-1 right-1 flex justify-between text-[7px] text-cyan-400/60 font-mono">
+                  <span>00</span>
+                  <span>60</span>
+                  <span>120</span>
+                  <span>180</span>
+                  <span>240</span>
+                  <span>300</span>
+                </div>
+              </div>
+            </div>
+
             {/* Execute Avoidance Button in Tactical HUD */}
-            <div className="mt-3 pt-2 border-t border-rose-500/20 flex flex-col gap-1.5">
+            <div className="mt-2.5 pt-2 border-t border-rose-500/20 flex flex-col gap-1.5">
               <button
                 onClick={handleAutonomousAvoidance}
                 disabled={isAutoExecuting || isVerified}
@@ -1411,39 +1695,179 @@ export const MissionControl: React.FC<MissionControlProps> = ({
           </div>
         </div>
 
-        {/* BOTTOM HUD DOCK */}
-        <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-auto">
-          <div className="bg-[#040915]/90 backdrop-blur-md border border-cyan-500/30 rounded-xl p-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
-              <span className="text-cyan-400 font-bold text-[10px] tracking-wider">TACTICAL CONTROLS:</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleTogglePlayPause}
-                  className="bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 px-2 py-1 rounded text-[10px] font-bold border border-cyan-500/30 cursor-pointer"
-                >
-                  {isRunning ? 'PAUSE' : 'RESUME'}
-                </button>
-                <button
-                  onClick={() => onChangeCameraMode('FOLLOW_SENTINEL')}
-                  className="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 px-2 py-1 rounded text-[10px] font-bold border border-cyan-500/20 cursor-pointer"
-                >
-                  LOCK SAT-01
-                </button>
-                <button
-                  onClick={() => onChangeCameraMode('PROXIMITY')}
-                  className="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 px-2 py-1 rounded text-[10px] font-bold border border-cyan-500/20 cursor-pointer"
-                >
-                  LOCK CPA
-                </button>
+        {/* ── BOTTOM MULTI-CARD ODTS HUD DOCK (MATCHING REFERENCE) ── */}
+        <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-auto flex flex-col gap-2">
+          
+          {/* 3 Main Tactical HUD Cards (Desktop Grid / Mobile Stack) */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 text-xs">
+            
+            {/* Panel 1: DEBRIS FIELD DENSITY (3 cols) */}
+            <div className="hidden sm:flex md:col-span-3 bg-[#040a16]/92 backdrop-blur-md border border-cyan-500/25 rounded-lg p-2 flex-col justify-between shadow-lg">
+              <div className="flex items-center justify-between text-cyan-400 font-bold border-b border-cyan-500/20 pb-1 text-[9px] tracking-wider">
+                <span>DEBRIS FIELD DENSITY</span>
+                <span className="text-[8px] text-amber-400 font-mono">LEO HIGH</span>
+              </div>
+              
+              <div className="relative w-full h-14 bg-[#02050e] rounded border border-cyan-500/20 overflow-hidden my-1">
+                {/* World Map Vector Outlines & Debris Hotspots */}
+                <svg className="w-full h-full" viewBox="0 0 160 56" preserveAspectRatio="none">
+                  <line x1="0" y1="28" x2="160" y2="28" stroke="#0891b2" strokeOpacity="0.2" strokeDasharray="2 2" />
+                  <line x1="80" y1="0" x2="80" y2="56" stroke="#0891b2" strokeOpacity="0.2" strokeDasharray="2 2" />
+                  <path d="M 15 16 Q 30 8 45 18 Q 35 28 20 25 Z" fill="#0e7490" fillOpacity="0.25" />
+                  <path d="M 28 28 Q 40 34 35 48 Q 25 45 28 28 Z" fill="#0e7490" fillOpacity="0.25" />
+                  <path d="M 65 12 Q 85 6 95 16 Q 80 24 65 12 Z" fill="#0e7490" fillOpacity="0.25" />
+                  <path d="M 68 22 Q 88 25 82 42 Q 70 38 68 22 Z" fill="#0e7490" fillOpacity="0.25" />
+                  <path d="M 105 10 Q 135 8 145 22 Q 120 28 105 10 Z" fill="#0e7490" fillOpacity="0.25" />
+                  <path d="M 125 36 Q 145 38 140 48 Q 125 46 125 36 Z" fill="#0e7490" fillOpacity="0.25" />
+                  {/* Dense debris clusters */}
+                  <circle cx="40" cy="18" r="2.5" fill="#f59e0b" fillOpacity="0.8" className="animate-ping" />
+                  <circle cx="40" cy="18" r="1.2" fill="#fef3c7" />
+                  <circle cx="75" cy="20" r="2.2" fill="#f97316" fillOpacity="0.7" />
+                  <circle cx="115" cy="16" r="3" fill="#ef4444" fillOpacity="0.8" className="animate-ping" />
+                  <circle cx="115" cy="16" r="1.5" fill="#fee2e2" />
+                  <circle cx="95" cy="36" r="2" fill="#f59e0b" fillOpacity="0.6" />
+                </svg>
+              </div>
+
+              <div className="flex justify-between items-center text-[8px] text-cyan-400/80 font-mono">
+                <span>REGION: 53° INC</span>
+                <span className="text-amber-300 font-bold">48,210 OBJ</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 text-[10px] text-cyan-400/80 font-mono">
-              <span>PROPAGATION: TWO-BODY RK4</span>
-              <span>•</span>
-              <span>SCREENING: 25.0 km</span>
-              <span>•</span>
-              <span className="text-cyan-200 font-bold">T+{simTime.toFixed(1)}s</span>
+            {/* Panel 2: ORBITAL SHELL ANALYSIS (4 cols) */}
+            <div className="hidden sm:flex md:col-span-4 bg-[#040a16]/92 backdrop-blur-md border border-cyan-500/25 rounded-lg p-2 flex-col justify-between shadow-lg">
+              <div className="flex items-center justify-between text-cyan-400 font-bold border-b border-cyan-500/20 pb-1 text-[9px] tracking-wider">
+                <span>ORBITAL SHELL ANALYSIS</span>
+                <span className="text-[8px] text-cyan-300 font-mono">600km SHELL</span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 my-1">
+                {/* Concentric Radar Rings */}
+                <svg className="w-14 h-14 shrink-0" viewBox="0 0 56 56">
+                  <circle cx="28" cy="28" r="26" fill="none" stroke="#0891b2" strokeOpacity="0.3" strokeDasharray="3 2" />
+                  <circle cx="28" cy="28" r="18" fill="none" stroke="#0891b2" strokeOpacity="0.4" />
+                  <circle cx="28" cy="28" r="12" fill="none" stroke="#06b6d4" strokeOpacity="0.6" strokeWidth="1.2" />
+                  <circle cx="28" cy="28" r="7" fill="#0284c7" />
+                  <circle cx="28" cy="16" r="1.8" fill="#22c55e" className="animate-pulse" />
+                  <circle cx="29" cy="17" r="1.5" fill="#ef4444" className="animate-ping" />
+                </svg>
+
+                {/* Vertical Altitude Distribution Bars */}
+                <div className="flex-1 flex items-end justify-between h-12 bg-[#02050e] p-1 rounded border border-cyan-500/20 gap-1 text-[7px] font-mono">
+                  {[
+                    { alt: '400', count: 18, color: 'bg-cyan-600' },
+                    { alt: '600', count: 42, color: 'bg-emerald-400', active: true },
+                    { alt: '800', count: 35, color: 'bg-cyan-500' },
+                    { alt: '1000', count: 24, color: 'bg-cyan-600' },
+                    { alt: '1200', count: 12, color: 'bg-cyan-700' },
+                  ].map(bar => (
+                    <div key={bar.alt} className="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+                      <div
+                        className={`w-full rounded-t ${bar.color} ${bar.active ? 'animate-pulse' : ''}`}
+                        style={{ height: `${bar.count * 0.8}px` }}
+                      />
+                      <span className={`text-[6px] ${bar.active ? 'text-emerald-300 font-bold' : 'text-slate-400'}`}>
+                        {bar.alt}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center text-[8px] text-cyan-400/80 font-mono">
+                <span>CONGESTION: 780-820km</span>
+                <span className="text-emerald-300 font-bold">SAT-01 @ 600km</span>
+              </div>
+            </div>
+
+            {/* Panel 3: EVENT TIMELINE (5 cols) */}
+            <div className="col-span-1 md:col-span-5 bg-[#040a16]/92 backdrop-blur-md border border-cyan-500/25 rounded-lg p-2 flex flex-col justify-between shadow-lg">
+              <div className="flex items-center justify-between text-cyan-400 font-bold border-b border-cyan-500/20 pb-1 text-[9px] tracking-wider">
+                <div className="flex items-center gap-2">
+                  <span>EVENT TIMELINE</span>
+                  <span className="text-[8px] font-mono text-cyan-300">
+                    T+{simTime.toFixed(1)}s
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-[7px] text-cyan-400/70">
+                  <span className="px-1 py-0.5 rounded bg-cyan-950 border border-cyan-500/30">FILTER ▾</span>
+                  <span className="px-1 py-0.5 rounded bg-cyan-950 border border-cyan-500/30">PLAYBACK ▾</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 my-1">
+                {/* Audio-Waveform / ECG Scrubber */}
+                <div className="flex-1 h-11 bg-[#02050e] rounded border border-cyan-500/20 relative overflow-hidden flex items-center px-1.5">
+                  {/* Waveform Bars */}
+                  <div className="w-full flex items-center justify-between gap-[2px] h-7">
+                    {Array.from({ length: 34 }).map((_, idx) => {
+                      const hVal = Math.sin(idx * 0.45 + simTime * 0.9) * 10 + 14;
+                      const isDangerZone = idx >= 17 && idx <= 23;
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex-1 rounded-full transition-all duration-150 ${
+                            isDangerZone
+                              ? (isCollided ? 'bg-rose-600' : isVerified ? 'bg-emerald-400' : 'bg-rose-500')
+                              : 'bg-cyan-500/40'
+                          }`}
+                          style={{ height: `${Math.max(3, hVal)}px` }}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Real-Time Moving Playback Scrubber Line */}
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow-[0_0_8px_#f59e0b]"
+                    style={{ left: `${Math.min(98, Math.max(2, (simTime % 60) * 1.63))}%` }}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-300 -translate-x-[2px] -translate-y-0.5 shadow-sm" />
+                  </div>
+
+                  {/* Timeline Time Labels */}
+                  <div className="absolute bottom-0.5 left-2 right-2 flex justify-between text-[7px] text-cyan-500/60 font-mono pointer-events-none">
+                    <span>00:00</span>
+                    <span className="text-rose-400 font-bold">CPA 00:20</span>
+                    <span>01:00</span>
+                  </div>
+                </div>
+
+                {/* Circular Glowing Play/Pause Action Button */}
+                <button
+                  onClick={handleTogglePlayPause}
+                  className="w-10 h-10 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/60 flex items-center justify-center text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 cursor-pointer"
+                  title={isRunning ? 'Pause Simulation' : 'Resume Simulation'}
+                >
+                  {isRunning ? (
+                    <Pause className="w-4 h-4 text-cyan-300" />
+                  ) : (
+                    <Play className="w-4 h-4 text-cyan-300 translate-x-0.5" />
+                  )}
+                </button>
+              </div>
+
+              {/* Bottom Quick Controls Strip */}
+              <div className="flex items-center justify-between text-[8px] font-mono">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => onChangeCameraMode('FOLLOW_SENTINEL')}
+                    className="px-1.5 py-0.5 bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/30 rounded text-cyan-300 cursor-pointer"
+                  >
+                    LOCK SAT
+                  </button>
+                  <button
+                    onClick={() => onChangeCameraMode('PROXIMITY')}
+                    className="px-1.5 py-0.5 bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/30 rounded text-cyan-300 cursor-pointer"
+                  >
+                    LOCK CPA
+                  </button>
+                </div>
+                <div className="text-cyan-400/80">
+                  PROPAGATION: <span className="text-cyan-200 font-bold">TWO-BODY RK4</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

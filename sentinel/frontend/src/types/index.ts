@@ -154,6 +154,10 @@ export interface TelemetryPoint {
   fuel_kg: number;
   battery_pct: number;
   phase: string;
+  collision_prob?: number;
+  delta_r?: number;
+  delta_t?: number;
+  delta_w?: number;
 }
 
 export type SafetyStatus = 
